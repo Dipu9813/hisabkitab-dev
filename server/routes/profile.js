@@ -46,17 +46,22 @@ router.get('/profile', authenticateToken, async (req, res) => {
 // User profile update: ph_number, full_name, and profile_pic
 router.post('/profile', authenticateToken, async (req, res) => {
   const { ph_number, full_name, profile_pic } = req.body;
-  const userId = req.user.sub;
-  if (!ph_number || !full_name) {
+  const userId = req.user.sub;  if (!ph_number || !full_name) {
     return res.status(400).json({ error: 'ph_number and full_name are required' });
-  }  // Get user email from JWT
-  const email = req.user.email;
+  }
   
+  console.log('🔍 Profile update request:', { userId, ph_number, full_name, profile_pic });
+
   try {
     // Use supabaseAdmin to bypass RLS policies for profile update
     const { data, error } = await supabaseAdmin
       .from('details')
-      .upsert({ id: userId, ph_number, full_name, profile_url: profile_pic, email })
+      .upsert({ 
+        id: userId, 
+        ph_number, 
+        full_name, 
+        profile_pic // Fixed: removed email and profile_url
+      })
       .select();
     
     if (error) {
@@ -64,6 +69,7 @@ router.post('/profile', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
     
+    console.log('✅ Profile updated successfully:', data);
     res.json({ message: 'Profile updated', data });
   } catch (err) {
     console.error("Server error during profile update:", err);

@@ -166,14 +166,13 @@ export default function LoansLog({ token }: { token: string }) {
             <div className="space-y-2">
               {loans
                 .filter(loan => loan.lender_id === currentUserId && loan.status === 'payment_requested')
-                .map(loan => (
-                  <div key={loan.id} className="border rounded p-3 bg-orange-50">
+                .map(loan => (                  <div key={loan.id} className="border rounded p-3 bg-orange-50">
                     <div className="flex justify-between items-center">
                       <div>
                         <p><strong>Borrower:</strong> {loan.receiver?.full_name || 'Unknown'}</p>
                         <p><strong>Amount:</strong> ${loan.amount}</p>
-                        <p><strong>Remark:</strong> {loan.remark || 'No remark'}</p>
-                        <p><strong>Deadline:</strong> {loan.deadline ? new Date(loan.deadline).toLocaleDateString() : 'N/A'}</p>
+                        <p><strong>Reason:</strong> {loan.reason || 'No reason'}</p>
+                        <p><strong>Due Date:</strong> {loan.due_date ? new Date(loan.due_date).toLocaleDateString() : 'N/A'}</p>
                         <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs">Payment Requested</span>
                       </div>
                       <button 
@@ -198,22 +197,20 @@ export default function LoansLog({ token }: { token: string }) {
             <div className="space-y-2">
               {loans
                 .filter(loan => loan.lender_id === currentUserId && ['pending', 'confirmed'].includes(loan.status))
-                .map(loan => (
-                  <div key={loan.id} className="border rounded p-3">
+                .map(loan => (                  <div key={loan.id} className="border rounded p-3">
                     <p><strong>Borrower:</strong> {loan.receiver?.full_name || 'Unknown'}</p>
                     <p><strong>Amount:</strong> ${loan.amount}</p>
-                    <p><strong>Remark:</strong> {loan.remark || 'No remark'}</p>
-                    <p><strong>Deadline:</strong> {loan.deadline ? new Date(loan.deadline).toLocaleDateString() : 'N/A'}</p>
+                    <p><strong>Reason:</strong> {loan.reason || 'No reason'}</p>
+                    <p><strong>Due Date:</strong> {loan.due_date ? new Date(loan.due_date).toLocaleDateString() : 'N/A'}</p>
                     <div className="mt-2 flex items-center justify-between">
                       {loan.status === 'pending' && (
                         <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">Pending Confirmation</span>
                       )}
                       {loan.status === 'confirmed' && (
                         <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">Confirmed</span>
-                      )}
-                      {loan.status === 'confirmed' && loan.deadline && (
+                      )}                      {loan.status === 'confirmed' && loan.due_date && (
                         <div className="text-sm">
-                          <Countdown deadline={loan.deadline} />
+                          <Countdown deadline={loan.due_date} />
                         </div>
                       )}
                     </div>
@@ -237,9 +234,8 @@ export default function LoansLog({ token }: { token: string }) {
               .map(loan => (
                 <div key={loan.id} className="border rounded p-3">
                   <p><strong>Lender:</strong> {loan.lender?.full_name || 'Unknown'}</p>
-                  <p><strong>Amount:</strong> ${loan.amount}</p>
-                  <p><strong>Remark:</strong> {loan.remark || 'No remark'}</p>
-                  <p><strong>Deadline:</strong> {loan.deadline ? new Date(loan.deadline).toLocaleDateString() : 'N/A'}</p>
+                  <p><strong>Amount:</strong> ${loan.amount}</p>                  <p><strong>Reason:</strong> {loan.reason || 'No reason'}</p>
+                  <p><strong>Due Date:</strong> {loan.due_date ? new Date(loan.due_date).toLocaleDateString() : 'N/A'}</p>
                   
                   <div className="mt-3 flex items-center justify-between">
                     <div>
@@ -275,11 +271,9 @@ export default function LoansLog({ token }: { token: string }) {
                         <span className="text-sm text-blue-600 font-medium">Waiting for lender approval</span>
                       )}
                     </div>
-                  </div>
-
-                  {loan.status === 'confirmed' && loan.deadline && (
+                  </div>                  {loan.status === 'confirmed' && loan.due_date && (
                     <div className="mt-2 text-sm text-gray-600">
-                      <strong>Time remaining:</strong> <Countdown deadline={loan.deadline} />
+                      <strong>Time remaining:</strong> <Countdown deadline={loan.due_date} />
                     </div>
                   )}
                 </div>

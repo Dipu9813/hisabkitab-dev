@@ -192,9 +192,9 @@ export default function HomeLoansSection({ token }: { token: string }) {
       <td className="py-2 px-3">{loan.lender?.full_name || 'Unknown'}</td>
       <td className="py-2 px-3">{loan.receiver?.full_name || 'Unknown'}</td>
       <td className="py-2 px-3">${loan.amount}</td>
-      <td className="py-2 px-3">{loan.remark}</td>
+      <td className="py-2 px-3">{loan.reason}</td>
       <td className="py-2 px-3">
-        {loan.deadline ? new Date(loan.deadline).toLocaleDateString() : 'N/A'}
+        {loan.due_date ? new Date(loan.due_date).toLocaleDateString() : 'N/A'}
       </td>
       <td className="py-2 px-3">
         {loan.status === 'pending' && (
@@ -231,9 +231,8 @@ export default function HomeLoansSection({ token }: { token: string }) {
           >
             Confirm Payment
           </button>
-        )}
-        {loan.status === 'confirmed' && loan.deadline && (
-          <Countdown deadline={loan.deadline} />
+        )}        {loan.status === 'confirmed' && loan.due_date && (
+          <Countdown deadline={loan.due_date} />
         )}
       </td>
     </tr>
@@ -253,8 +252,8 @@ export default function HomeLoansSection({ token }: { token: string }) {
                 <th className="py-2 px-3 text-left">Lender</th>
                 <th className="py-2 px-3 text-left">Receiver</th>
                 <th className="py-2 px-3 text-left">Amount</th>
-                <th className="py-2 px-3 text-left">Remark</th>
-                <th className="py-2 px-3 text-left">Deadline</th>
+                <th className="py-2 px-3 text-left">Reason</th>
+                <th className="py-2 px-3 text-left">Due Date</th>
                 <th className="py-2 px-3 text-left">Status</th>
                 {showActions && <th className="py-2 px-3 text-left">Action</th>}
               </tr>

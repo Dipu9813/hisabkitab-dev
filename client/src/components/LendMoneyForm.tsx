@@ -4,7 +4,7 @@ import { useState } from "react";
 export default function LendMoneyForm({ token }: { token: string }) {
   const [phNumber, setPhNumber] = useState("");
   const [amount, setAmount] = useState("");
-  const [remark, setRemark] = useState("");
+  const [reason, setReason] = useState("");
   const [deadline, setDeadline] = useState("");
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -20,7 +20,7 @@ export default function LendMoneyForm({ token }: { token: string }) {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({ ph_number: phNumber, amount, remark, deadline }),
+        body: JSON.stringify({ ph_number: phNumber, amount, remark: reason, deadline }),
       });
       
       if (!res.ok) {
@@ -38,7 +38,7 @@ export default function LendMoneyForm({ token }: { token: string }) {
       setSuccess("Loan request sent!");
       setPhNumber("");
       setAmount("");
-      setRemark("");
+      setReason("");
       setDeadline("");
     } catch (err: any) {
       console.error("Error creating loan:", err);
@@ -64,13 +64,12 @@ export default function LendMoneyForm({ token }: { token: string }) {
         value={amount}
         onChange={e => setAmount(e.target.value)}
         required
-      />
-      <input
+      />      <input
         type="text"
-        placeholder="Remark"
+        placeholder="Reason"
         className="w-full border p-2 rounded"
-        value={remark}
-        onChange={e => setRemark(e.target.value)}
+        value={reason}
+        onChange={e => setReason(e.target.value)}
       />
       <input
         type="date"

@@ -103,8 +103,7 @@ export default function LoanHistory({ token }: { token: string }) {
               <tr>
                 <th className="py-2 px-3 text-left">Lender</th>
                 <th className="py-2 px-3 text-left">Borrower</th>
-                <th className="py-2 px-3 text-left">Amount</th>
-                <th className="py-2 px-3 text-left">Remark</th>
+                <th className="py-2 px-3 text-left">Amount</th>                <th className="py-2 px-3 text-left">Reason</th>
                 <th className="py-2 px-3 text-left">Loan Date</th>
                 <th className="py-2 px-3 text-left">Payment Date</th>
                 <th className="py-2 px-3 text-left">Type</th>
@@ -117,14 +116,13 @@ export default function LoanHistory({ token }: { token: string }) {
                   </td>
                   <td className="py-2 px-3">
                     {item.receiver?.full_name || users[item.receiver_id] || 'Unknown'}
-                  </td>
-                  <td className="py-2 px-3">${item.amount}</td>
-                  <td className="py-2 px-3">{item.remark || 'No remark'}</td>
+                  </td>                  <td className="py-2 px-3">${item.amount}</td>
+                  <td className="py-2 px-3">{item.reason || 'No reason'}</td>
                   <td className="py-2 px-3">
-                    {item.loan_date ? new Date(item.loan_date).toLocaleDateString() : 'N/A'}
+                    {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="py-2 px-3">
-                    {item.payment_date ? new Date(item.payment_date).toLocaleDateString() : 'N/A'}
+                    {item.paid_at ? new Date(item.paid_at).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="py-2 px-3">
                     {item.lender_id === currentUserId ? (

@@ -7,53 +7,116 @@ const authenticateToken = require('../middleware/authenticateToken');
 router.post('/lend', authenticateToken, async (req, res) => {
   const { ph_number, amount, remark, deadline } = req.body;
   const lenderId = req.user.sub;
+  
+  console.log('💰 Loan creation request:', { ph_number, amount, remark, deadline, lenderId });
+  
   if (!ph_number || !amount || !deadline) {
     return res.status(400).json({ error: 'Phone number, amount, and deadline are required' });
-  }  // Find receiver by phone number
-  const { data: receiverData, error: receiverError } = await supabaseAdmin
-    .from('details')
-    .select('id')
-    .eq('ph_number', ph_number)
-    .single();
-  if (receiverError || !receiverData) {
-    return res.status(404).json({ error: 'Receiver not found' });
   }
-  const receiverId = receiverData.id;
-  // Insert loan record
-  const { data, error } = await supabaseAdmin
-    .from('loans')
-    .insert([
-      {
-        lender_id: lenderId,
-        receiver_id: receiverId,
-        amount,
-        remark,
-        deadline,
-        status: 'pending',
-      },
-    ])
-    .select();
-  if (error) return res.status(400).json({ error: error.message });
-  res.json({ message: 'Loan request created', data });
-});
+
+  try {
+    // Find receiver by phone number
+    console.log('🔍 Looking up receiver by phone:', ph_number);
+    const { data: receiverData, error: receiverError } = await supabaseAdmin
+      .from('details')
+      .select('id')
+      .eq('ph_number', ph_number)
+      .single();
+      
+    if (receiverError || !receiverData) {
+      console.log('❌ Receiver not found:', receiverError?.message);
+      return res.status(404).json({ error: 'Receiver not found' });
+    }
+    
+    const receiverId = receiverData.id;
+    console.log('✅ Receiver found:', receiverId);
+    
+    // Insert loan record (using due_date instead of deadline)
+    console.log('📝 Creating loan record...');
+    const { data, error } = await supabaseAdmin
+      .from('loans')
+      .insert([
+        {
+          lender_id: lenderId,
+          receiver_id: receiverId,
+          amount,
+          reason: remark, // Using 'reason' field from schema
+          due_date: deadline, // Fixed: deadline -> due_date
+          status: 'pending',
+        },
+      ])
+      .select();
+      
+    if (error) {
+      console.log('❌ Loan creation error:', error);
+      return res.status(400).json({ error: error.message });
+    }
+      console.log('✅ Loan created successfully:', data);
+    res.json({ message: 'Loan request created', data });
+    
+  } catch (err) {
+    console.error('❌ Unexpected error in loan creation:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}); // Added missing closing brace and parenthesis
 
 // Get all loans for the logged-in user (as lender or receiver)
 router.get('/loans', authenticateToken, async (req, res) => {
   const userId = req.user.sub;
+  
+  console.log('📋 Fetching loans for user:', userId);
+  
   try {
-    const { data, error } = await supabaseAdmin
+    // First, get basic loan data
+    const { data: loans, error } = await supabaseAdmin
       .from('loans')
-      .select(`
-        *,
-        lender:details!lender_id(id, full_name, ph_number),
-        receiver:details!receiver_id(id, full_name, ph_number)
-      `)
+      .select('*')
       .or(`lender_id.eq.${userId},receiver_id.eq.${userId}`)
       .order('created_at', { ascending: false });
-    if (error) return res.status(400).json({ error: error.message });
-    res.json({ data });
+      
+    if (error) {
+      console.log('❌ Loans query error:', error);
+      return res.status(400).json({ error: error.message });
+    }
+    
+    console.log('✅ Found loans:', loans?.length || 0);
+    
+    // Then fetch user details for each unique user ID
+    const userIds = new Set();
+    loans.forEach(loan => {
+      userIds.add(loan.lender_id);
+      userIds.add(loan.receiver_id);
+    });
+    
+    const { data: userDetails, error: userError } = await supabaseAdmin
+      .from('details')
+      .select('id, full_name, ph_number')
+      .in('id', Array.from(userIds));
+      
+    if (userError) {
+      console.log('⚠️ User details error:', userError.message);
+      // Continue without user details
+    }
+    
+    // Create user lookup map
+    const userMap = {};
+    userDetails?.forEach(user => {
+      userMap[user.id] = user;
+    });
+    
+    // Enrich loans with user details
+    const enrichedLoans = loans.map(loan => ({
+      ...loan,
+      lender: userMap[loan.lender_id] || null,
+      receiver: userMap[loan.receiver_id] || null
+    }));
+    
+    console.log('✅ Loans with user details prepared');
+    res.json({ data: enrichedLoans });    console.log('✅ Loans with user details prepared');
+    res.json({ data: enrichedLoans });
+    
   } catch (err) {
-    console.error("Error fetching loans:", err);
+    console.error("❌ Error fetching loans:", err);
     res.status(500).json({ error: 'Failed to fetch loans' });
   }
 });
@@ -135,8 +198,7 @@ router.post('/loans/:id/confirm-payment', authenticateToken, async (req, res) =>
     if (loanError || !loan) return res.status(404).json({ error: 'Loan not found' });
     if (loan.lender_id !== userId) return res.status(403).json({ error: 'Not authorized - only lenders can confirm payments' });
     if (loan.status !== 'payment_requested') return res.status(400).json({ error: 'Only loans with pending payment requests can be confirmed as paid' });
-    
-    // Insert into loan history
+      // Insert into loan history
     const { data: historyData, error: historyError } = await supabaseAdmin
       .from('loan_history')
       .insert([{
@@ -144,10 +206,10 @@ router.post('/loans/:id/confirm-payment', authenticateToken, async (req, res) =>
         lender_id: loan.lender_id,
         receiver_id: loan.receiver_id,
         amount: loan.amount,
-        remark: loan.remark,
-        loan_date: loan.created_at,
-        payment_date: new Date().toISOString(),
-        deadline: loan.deadline
+        reason: loan.reason, // Fixed: remark -> reason
+        due_date: loan.due_date, // Fixed: deadline -> due_date
+        created_at: loan.created_at,
+        paid_at: new Date().toISOString()
       }])
       .select();
       
@@ -175,31 +237,22 @@ router.post('/loans/:id/confirm-payment', authenticateToken, async (req, res) =>
 router.get('/loan-history', authenticateToken, async (req, res) => {
   const userId = req.user.sub;
   
+  console.log('📊 Fetching loan history for user:', userId);
+  
   try {
-    // First, check if the table exists by doing a simple query
-    const { data: tableCheck, error: tableError } = await supabaseAdmin
-      .from('loan_history')
-      .select('id')
-      .limit(1);
-      
-    if (tableError) {
-      console.error("Table check error:", tableError);
-      return res.status(400).json({ 
-        error: `Table error: ${tableError.message}. Please ensure the loan_history table exists in your Supabase database.`
-      });
-    }
-    
     // Query loan history and manually join with details
     const { data: historyData, error: historyError } = await supabaseAdmin
       .from('loan_history')
       .select('*')
       .or(`lender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .order('payment_date', { ascending: false });
+      .order('paid_at', { ascending: false }); // Fixed: payment_date -> paid_at
       
     if (historyError) {
-      console.error("History query error:", historyError);
+      console.error("❌ History query error:", historyError);
       return res.status(400).json({ error: historyError.message });
     }
+    
+    console.log('✅ Found loan history records:', historyData?.length || 0);
     
     // Get all unique user IDs from the history data
     const userIds = [...new Set([
