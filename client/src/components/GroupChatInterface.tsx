@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { jwtDecode } from "jwt-decode";
+import ExpenseManager from "./ExpenseManager";
 
 interface Message {
   id: string;
@@ -25,6 +26,7 @@ export default function GroupChatInterface({ token, groupId, groupName }: GroupC
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [activeTab, setActiveTab] = useState<'chat' | 'expenses'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -36,29 +38,37 @@ export default function GroupChatInterface({ token, groupId, groupName }: GroupC
     currentUserId = decoded.sub;
     currentUserName = decoded.name || "You";
   } catch {}
-  useEffect(() => {
-    fetchMessages();
-    
-    // Set up real-time polling every 1.5 seconds for better responsiveness
-    const interval = setInterval(() => {
-      fetchMessages();
-    }, 1500);
-    
-    return () => clearInterval(interval);
-  }, [groupId]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (activeTab === 'chat') {
+      fetchMessages();
+      
+      // Set up real-time polling every 1.5 seconds for better responsiveness
+      const interval = setInterval(() => {
+        fetchMessages();
+      }, 1500);
+      
+      return () => clearInterval(interval);
+    }
+  }, [groupId, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      scrollToBottom();
+    }
+  }, [messages, activeTab]);
 
   useEffect(() => {
     // Focus input on load
-    inputRef.current?.focus();
-  }, []);
+    if (activeTab === 'chat') {
+      inputRef.current?.focus();
+    }
+  }, [activeTab]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
   const fetchMessages = async () => {
     console.log('📥 Fetching messages for group:', groupId);
     
@@ -86,6 +96,7 @@ export default function GroupChatInterface({ token, groupId, groupName }: GroupC
       setError("Failed to load messages");
     }
   };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -95,9 +106,11 @@ export default function GroupChatInterface({ token, groupId, groupName }: GroupC
     setNewMessage("");
     setLoading(true);
     setError("");
-      // Simulate typing indicator for others
+
+    // Simulate typing indicator for others
     setIsTyping(true);
-      console.log('🚀 Sending message:', messageToSend, 'to group:', groupId);
+      
+    console.log('🚀 Sending message:', messageToSend, 'to group:', groupId);
     console.log('🔑 Using token:', token ? 'Token present' : 'No token');
     console.log('📋 Request payload:', JSON.stringify({ message: messageToSend }));
     
@@ -107,11 +120,16 @@ export default function GroupChatInterface({ token, groupId, groupName }: GroupC
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
-        },        body: JSON.stringify({
+        },
+        body: JSON.stringify({
           message: messageToSend,
         }),
-      });      console.log('📡 Response status:', res.status);
-      console.log('📡 Response headers:', res.headers.get('content-type'));      if (!res.ok) {
+      });
+
+      console.log('📡 Response status:', res.status);
+      console.log('📡 Response headers:', res.headers.get('content-type'));
+
+      if (!res.ok) {
         const contentType = res.headers.get('content-type');
         console.log('❌ Request failed with status:', res.status);
         console.log('❌ Content type:', contentType);
@@ -133,7 +151,8 @@ export default function GroupChatInterface({ token, groupId, groupName }: GroupC
       }
 
       // Immediately fetch new messages to update UI
-      fetchMessages();      
+      fetchMessages();
+      
     } catch (err: any) {
       console.error("Error sending message:", err);
       console.error("Full error details:", err);
@@ -164,6 +183,7 @@ export default function GroupChatInterface({ token, groupId, groupName }: GroupC
              ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
   };
+
   const renderMessage = (message: Message, index: number) => {
     const isOwn = message.sender_id === currentUserId;
     const prevMessage = index > 0 ? messages[index - 1] : null;
@@ -207,85 +227,126 @@ export default function GroupChatInterface({ token, groupId, groupName }: GroupC
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {error && (
-          <div className="text-center py-4">
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {error}
-            </div>
-          </div>
-        )}
-        
-        {messages.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="text-gray-500 mb-4">
-              <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <p className="text-lg font-medium">Welcome to {groupName}!</p>
-              <p className="text-sm">Start the conversation by sending a message.</p>
-            </div>
-          </div>
-        ) : (
-          messages.map((message, index) => renderMessage(message, index))
-        )}
-        
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Message Input Area */}
-      <div className="border-t bg-white p-4">
-        <form onSubmit={handleSendMessage} className="flex items-end space-x-3">
-          <div className="flex-1">
-            <div className="relative">
-              <input
-                ref={inputRef}
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type a message..."
-                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                disabled={loading}
-              />
-              {/* Emoji button placeholder */}
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-gray-200 px-4 py-2">
+        <div className="flex space-x-1">
           <button
-            type="submit"
-            disabled={loading || !newMessage.trim()}
-            className={`p-3 rounded-full transition-all ${
-              newMessage.trim() && !loading
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            onClick={() => setActiveTab('chat')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+              activeTab === 'chat'
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
             }`}
           >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            )}
+            💬 Chat
           </button>
-        </form>
-        
-        {isTyping && (
-          <div className="mt-2 text-xs text-gray-500">
-            Someone is typing...
-          </div>
-        )}
+          <button
+            onClick={() => setActiveTab('expenses')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+              activeTab === 'expenses'
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            💰 Expenses
+          </button>
+        </div>
       </div>
+
+      {/* Tab Content */}
+      {activeTab === 'chat' && (
+        <>
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {error && (
+              <div className="text-center py-4">
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  {error}
+                </div>
+              </div>
+            )}
+            
+            {messages.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-4">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <p className="text-lg font-medium">Welcome to {groupName}!</p>
+                  <p className="text-sm">Start the conversation by sending a message.</p>
+                </div>
+              </div>
+            ) : (
+              messages.map((message, index) => renderMessage(message, index))
+            )}
+            
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Message Input Area */}
+          <div className="border-t bg-white p-4">
+            <form onSubmit={handleSendMessage} className="flex items-end space-x-3">
+              <div className="flex-1">
+                <div className="relative">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type a message..."
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={loading}
+                  />
+                  {/* Emoji button placeholder */}
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <button
+                type="submit"
+                disabled={loading || !newMessage.trim()}
+                className={`p-3 rounded-full transition-all ${
+                  newMessage.trim() && !loading
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                )}
+              </button>
+            </form>
+            
+            {isTyping && (
+              <div className="mt-2 text-xs text-gray-500">
+                Someone is typing...
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Expenses Tab Content */}
+      {activeTab === 'expenses' && (
+        <ExpenseManager
+          token={token}
+          groupId={groupId}
+          groupName={groupName}
+          currentUserId={currentUserId}
+        />
+      )}
     </div>
   );
 }

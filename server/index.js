@@ -21,6 +21,7 @@ const profileRoutes = require('./routes/profile');
 const lendRoutes = require('./routes/lend');
 const usersRoutes = require('./routes/users');
 const groupsRoutes = require('./routes/groups');
+const expensesRoutes = require('./routes/expenses');
 
 const app = express();
 app.use(cors());
@@ -33,6 +34,7 @@ app.use('/', profileRoutes);
 app.use('/', lendRoutes);
 app.use('/', usersRoutes);
 app.use('/', groupsRoutes);
+app.use('/', expensesRoutes);
 
 // Global error handler to always return JSON
 app.use((err, req, res, next) => {

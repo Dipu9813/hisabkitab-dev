@@ -155,23 +155,35 @@ router.get('/groups/:id', authenticateToken, async (req, res) => {
     if (groupError || !group) {
       return res.status(404).json({ error: 'Group not found' });
     }
-    
-    // Get group members
-    const { data: members, error: membersError } = await supabaseAdmin
+      // Get group members (using manual join since FK relationship may not be defined)
+    const { data: groupMembers, error: membersError } = await supabaseAdmin
       .from('group_members')
-      .select(`
-        user_id,
-        joined_at,
-        details (
-          full_name,
-          ph_number,
-          profile_pic
-        )
-      `)
+      .select('user_id, joined_at')
       .eq('group_id', groupId);
       
     if (membersError) {
       return res.status(400).json({ error: 'Failed to fetch group members' });
+    }
+    
+    // Get user details for all members
+    let members = [];
+    if (groupMembers.length > 0) {
+      const userIds = groupMembers.map(m => m.user_id);
+      const { data: userDetails, error: userDetailsError } = await supabaseAdmin
+        .from('details')
+        .select('id, full_name, ph_number, profile_pic')
+        .in('id', userIds);
+        
+      if (userDetailsError) {
+        return res.status(400).json({ error: 'Failed to fetch user details' });
+      }
+      
+      // Combine group member data with user details
+      members = groupMembers.map(member => ({
+        user_id: member.user_id,
+        joined_at: member.joined_at,
+        details: userDetails.find(d => d.id === member.user_id)
+      }));
     }
     
     res.json({ 
