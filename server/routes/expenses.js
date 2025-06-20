@@ -318,25 +318,36 @@ router.get('/groups/:groupId/balances', authenticateToken, async (req, res) => {
       console.error('❌ Settlements query error:', settlementsError);
       return res.status(400).json({ error: 'Failed to fetch balances' });
     }
-    
-    // Get group members for complete balance overview
-    const { data: members, error: membersError } = await supabaseAdmin
+      // Get group members (using manual join since FK relationship may not be defined)
+    const { data: groupMembers, error: membersError } = await supabaseAdmin
       .from('group_members')
-      .select(`
-        user_id,
-        details (
-          id,
-          full_name,
-          profile_pic
-        )
-      `)
+      .select('user_id')
       .eq('group_id', groupId);
       
     if (membersError) {
       return res.status(400).json({ error: 'Failed to fetch group members' });
     }
     
-    // Calculate net balances for each member
+    // Get user details for all members
+    let members = [];
+    if (groupMembers.length > 0) {
+      const userIds = groupMembers.map(m => m.user_id);
+      const { data: userDetails, error: userDetailsError } = await supabaseAdmin
+        .from('details')
+        .select('id, full_name, profile_pic')
+        .in('id', userIds);
+        
+      if (userDetailsError) {
+        return res.status(400).json({ error: 'Failed to fetch user details' });
+      }
+      
+      // Combine group member data with user details
+      members = groupMembers.map(member => ({
+        user_id: member.user_id,
+        details: userDetails.find(d => d.id === member.user_id)
+      }));
+    }
+      // Calculate net balances for each member
     const memberBalances = {};
     members.forEach(member => {
       memberBalances[member.user_id] = {
