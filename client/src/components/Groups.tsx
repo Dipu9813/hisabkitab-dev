@@ -29,21 +29,21 @@ export default function Groups({ token, onClose }: GroupsProps) {
   const fetchGroups = async () => {
     setLoading(true);
     setError("");
-    
+
     try {
       const res = await fetch("http://localhost:3000/groups", {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      
+
       if (!res.ok) {
         throw new Error(`Error ${res.status}: ${res.statusText}`);
       }
-      
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
+
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
         throw new Error(`Expected JSON but got ${contentType}`);
       }
-      
+
       const data = await res.json();
       if (data.data && Array.isArray(data.data)) {
         setGroups(data.data);
@@ -60,16 +60,18 @@ export default function Groups({ token, onClose }: GroupsProps) {
     fetchGroups();
   };
   const handleOpenChat = (group: Group) => {
-    // Navigate to dedicated chat page with group details
-    router.push(`/chat?groupId=${group.id}&groupName=${encodeURIComponent(group.name)}`);
+    // Navigate to dedicated group page with all functionality (chat, balances, settlement)
+    router.push(
+      `/group?groupId=${group.id}&groupName=${encodeURIComponent(group.name)}`
+    );
   };
 
   const formatDate = (timestamp: string) => {
     const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
@@ -80,7 +82,9 @@ export default function Groups({ token, onClose }: GroupsProps) {
           {/* Header */}
           <div className="flex justify-between items-center p-6 border-b border-gray-200">
             <h2 className="text-2xl font-bold">My Groups</h2>
-            <div className="flex space-x-2">              <button
+            <div className="flex space-x-2">
+              {" "}
+              <button
                 onClick={() => setShowCreateGroup(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
               >
@@ -90,8 +94,18 @@ export default function Groups({ token, onClose }: GroupsProps) {
                 onClick={onClose}
                 className="text-gray-500 hover:text-gray-700"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -106,10 +120,15 @@ export default function Groups({ token, onClose }: GroupsProps) {
             ) : error ? (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
                 {error}
-              </div>            ) : groups.length === 0 ? (
+              </div>
+            ) : groups.length === 0 ? (
               <div className="text-center py-12">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No groups yet</h3>
-                <p className="text-gray-500 mb-4">Create your first group to start chatting with friends!</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No groups yet
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  Create your first group to start chatting with friends!
+                </p>
                 <button
                   onClick={() => setShowCreateGroup(true)}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md"
@@ -117,7 +136,8 @@ export default function Groups({ token, onClose }: GroupsProps) {
                   Create Your First Group
                 </button>
               </div>
-            ) : (                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {groups.map((group) => (
                   <div
                     key={group.id}
@@ -125,15 +145,29 @@ export default function Groups({ token, onClose }: GroupsProps) {
                     onClick={() => handleOpenChat(group)}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-lg truncate group-hover:text-blue-600 transition-colors">{group.name}</h3>
-                      <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      <h3 className="font-semibold text-lg truncate group-hover:text-blue-600 transition-colors">
+                        {group.name}
+                      </h3>
+                      <svg
+                        className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
                       </svg>
                     </div>
-                    <p className="text-sm text-gray-500">Created {formatDate(group.created_at)}</p>
+                    <p className="text-sm text-gray-500">
+                      Created {formatDate(group.created_at)}
+                    </p>{" "}
                     <div className="mt-3 flex justify-end">
                       <button className="text-blue-600 hover:text-blue-800 text-sm font-medium group-hover:underline transition-all">
-                        Open Chat →
+                        Open Group →
                       </button>
                     </div>
                   </div>
@@ -142,7 +176,8 @@ export default function Groups({ token, onClose }: GroupsProps) {
             )}
           </div>
         </div>
-      </div>      {/* Create Group Modal */}
+      </div>{" "}
+      {/* Create Group Modal */}
       {showCreateGroup && (
         <CreateGroup
           token={token}

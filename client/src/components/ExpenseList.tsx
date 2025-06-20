@@ -34,10 +34,17 @@ interface ExpenseListProps {
   token: string;
   groupId: string;
   currentUserId: string;
+  groupPhase?: "active" | "settlement";
   onRefresh?: () => void;
 }
 
-export default function ExpenseList({ token, groupId, currentUserId, onRefresh }: ExpenseListProps) {
+export default function ExpenseList({
+  token,
+  groupId,
+  currentUserId,
+  groupPhase,
+  onRefresh,
+}: ExpenseListProps) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -51,7 +58,7 @@ export default function ExpenseList({ token, groupId, currentUserId, onRefresh }
     entertainment: "🎬",
     shopping: "🛍️",
     medical: "🏥",
-    other: "📦"
+    other: "📦",
   };
 
   useEffect(() => {
@@ -61,22 +68,24 @@ export default function ExpenseList({ token, groupId, currentUserId, onRefresh }
   const fetchExpenses = async () => {
     setLoading(true);
     setError("");
-    
+
     try {
-      const response = await fetch(`http://localhost:3000/groups/${groupId}/expenses`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
+      const response = await fetch(
+        `http://localhost:3000/groups/${groupId}/expenses`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
-      
+      );
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to fetch expenses");
       }
-      
+
       const data = await response.json();
       setExpenses(data.data || []);
-      
     } catch (err: any) {
       console.error("Error fetching expenses:", err);
       setError(err.message || "Failed to load expenses");
@@ -89,24 +98,26 @@ export default function ExpenseList({ token, groupId, currentUserId, onRefresh }
     if (!confirm("Are you sure you want to delete this expense?")) {
       return;
     }
-    
+
     try {
-      const response = await fetch(`http://localhost:3000/expenses/${expenseId}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
+      const response = await fetch(
+        `http://localhost:3000/expenses/${expenseId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
-      
+      );
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to delete expense");
       }
-      
+
       // Refresh expenses list
       fetchExpenses();
       onRefresh?.();
-      
     } catch (err: any) {
       console.error("Error deleting expense:", err);
       alert(err.message || "Failed to delete expense");
@@ -118,32 +129,42 @@ export default function ExpenseList({ token, groupId, currentUserId, onRefresh }
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) {
-      return "Today " + date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
+      return (
+        "Today " +
+        date.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
     } else if (diffDays === 1) {
       return "Yesterday";
     } else if (diffDays < 7) {
       return `${diffDays} days ago`;
     } else {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
       });
     }
   };
 
   const getUserShare = (expense: Expense, userId: string) => {
-    const participant = expense.participants.find(p => p.participant_id === userId);
+    const participant = expense.participants.find(
+      (p) => p.participant_id === userId
+    );
     return participant?.share_amount || 0;
   };
 
   const getUserInitials = (name: string) => {
-    return name.split(' ').map(n => n.charAt(0)).join('').toUpperCase().slice(0, 2);
+    return name
+      .split(" ")
+      .map((n) => n.charAt(0))
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const toggleExpenseDetails = (expenseId: string) => {
@@ -176,8 +197,12 @@ export default function ExpenseList({ token, groupId, currentUserId, onRefresh }
     return (
       <div className="text-center py-12">
         <div className="text-6xl mb-4">💸</div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No expenses yet</h3>
-        <p className="text-gray-500">Add your first group expense to get started!</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          No expenses yet
+        </h3>
+        <p className="text-gray-500">
+          Add your first group expense to get started!
+        </p>
       </div>
     );
   }
@@ -189,11 +214,14 @@ export default function ExpenseList({ token, groupId, currentUserId, onRefresh }
         const userShare = getUserShare(expense, currentUserId);
         const isUserPayer = expense.payer.id === currentUserId;
         const canDelete = expense.created_by_user.id === currentUserId;
-        
+
         return (
-          <div key={expense.id} className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div
+            key={expense.id}
+            className="bg-white rounded-lg border border-gray-200 shadow-sm"
+          >
             {/* Main expense info */}
-            <div 
+            <div
               className="p-4 cursor-pointer hover:bg-gray-50"
               onClick={() => toggleExpenseDetails(expense.id)}
             >
@@ -203,7 +231,7 @@ export default function ExpenseList({ token, groupId, currentUserId, onRefresh }
                   <div className="text-2xl">
                     {categoryIcons[expense.category] || categoryIcons.general}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium text-gray-900 truncate">
@@ -222,47 +250,60 @@ export default function ExpenseList({ token, groupId, currentUserId, onRefresh }
                             You owe ₹{userShare.toFixed(2)}
                           </p>
                         ) : (
-                          <p className="text-xs text-gray-500">
-                            Not involved
-                          </p>
+                          <p className="text-xs text-gray-500">Not involved</p>
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center mt-1 text-sm text-gray-500">
                       <span>Paid by {expense.payer.full_name}</span>
                       <span className="mx-2">•</span>
                       <span>{formatDate(expense.created_at)}</span>
                       <span className="mx-2">•</span>
-                      <span>{expense.participants.length} participant{expense.participants.length !== 1 ? 's' : ''}</span>
+                      <span>
+                        {expense.participants.length} participant
+                        {expense.participants.length !== 1 ? "s" : ""}
+                      </span>
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Expand/collapse arrow */}
                 <div className="ml-2 mt-1">
-                  <svg 
-                    className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    fill="none" 
-                    stroke="currentColor" 
+                  <svg
+                    className={`w-5 h-5 text-gray-400 transition-transform ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
                   </svg>
                 </div>
               </div>
             </div>
-            
+
             {/* Expanded details */}
             {isExpanded && (
               <div className="border-t border-gray-100 p-4 bg-gray-50">
                 <div className="space-y-4">
                   {/* Participants breakdown */}
                   <div>
-                    <h5 className="text-sm font-medium text-gray-700 mb-2">Split breakdown:</h5>
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">
+                      Split breakdown:
+                    </h5>
                     <div className="space-y-2">
                       {expense.participants.map((participant) => (
-                        <div key={participant.participant_id} className="flex items-center justify-between">
+                        <div
+                          key={participant.participant_id}
+                          className="flex items-center justify-between"
+                        >
                           <div className="flex items-center">
                             {participant.user.profile_pic ? (
                               <img
@@ -279,7 +320,8 @@ export default function ExpenseList({ token, groupId, currentUserId, onRefresh }
                             )}
                             <span className="text-sm text-gray-900">
                               {participant.user.full_name}
-                              {participant.participant_id === currentUserId && " (You)"}
+                              {participant.participant_id === currentUserId &&
+                                " (You)"}
                             </span>
                           </div>
                           <span className="text-sm font-medium text-gray-900">
@@ -289,13 +331,13 @@ export default function ExpenseList({ token, groupId, currentUserId, onRefresh }
                       ))}
                     </div>
                   </div>
-                  
+
                   {/* Actions */}
                   <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                     <div className="text-xs text-gray-500">
                       Added by {expense.created_by_user.full_name}
                     </div>
-                    
+
                     {canDelete && (
                       <button
                         onClick={(e) => {
