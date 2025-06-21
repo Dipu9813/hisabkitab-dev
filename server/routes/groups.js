@@ -550,9 +550,7 @@ router.post("/groups/:id/settle", authenticateToken, async (req, res) => {
         return res
           .status(400)
           .json({ error: "Failed to store optimized settlements" });
-      }
-
-      // Create loan records for each settlement
+      }      // Create loan records for each settlement
       console.log("💰 Creating loan records for settlements...");
       const loanRecords = optimalSettlements.map((settlement) => ({
         lender_id: settlement.to, // The person receiving money is the lender
@@ -560,7 +558,7 @@ router.post("/groups/:id/settle", authenticateToken, async (req, res) => {
         amount: settlement.amount,
         reason: `Group settlement for "${group.name}"`,
         due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-        status: "confirmed", // Settlement loans are automatically confirmed
+        status: "pending", // Settlement loans require receiver confirmation
       }));
 
       const { error: loanError } = await supabaseAdmin
@@ -678,6 +676,8 @@ router.get(
 );
 
 // Mark a settlement as completed
+// NOTE: This route is deprecated - settlements are now handled through the loan system
+// Settlement loans are created with status "pending" and users complete them via loan confirmation
 router.post(
   "/groups/:groupId/settlements/:settlementId/complete",
   authenticateToken,

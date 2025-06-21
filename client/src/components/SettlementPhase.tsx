@@ -88,32 +88,6 @@ export default function SettlementPhase({
       setLoading(false);
     }
   };
-
-  const markSettlementComplete = async (settlementId: string) => {
-    try {
-      const response = await fetch(
-        `http://localhost:3000/groups/${groupId}/settlements/${settlementId}/complete`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to mark settlement as complete");
-      }
-
-      // Refresh settlements
-      await fetchSettlements();
-      await fetchMyBalance();
-    } catch (err: any) {
-      console.error("Error completing settlement:", err);
-      setError(err.message || "Failed to complete settlement");
-    }
-  };
-
   const getUserInitials = (name: string) => {
     return name
       .split(" ")
@@ -256,11 +230,37 @@ export default function SettlementPhase({
         </div>
       </div>
 
-      {/* Pending Settlements */}
+      {/* Settlement Process Info */}
+      {pendingSettlements.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <div className="text-amber-600 mt-0.5">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-amber-900">
+                How to Complete Settlement
+              </h3>
+              <p className="text-sm text-amber-700 mt-1">
+                Settlement loans have been created and sent to your loans section.
+                If you owe money, please check your{" "}
+                <strong>Loans</strong> page to confirm your obligations.
+                Once confirmed, you can make payments and mark them as paid through the normal loan process.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}      {/* Pending Settlements */}
       {pendingSettlements.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900">
-            Pending Settlements
+            Settlement Overview
           </h3>
           <div className="space-y-3">
             {pendingSettlements.map((settlement) => {
@@ -311,22 +311,19 @@ export default function SettlementPhase({
                           {isDebtor ? "You owe" : "You will receive"}
                         </p>
                       </div>
-                    </div>
-
-                    <div className="flex items-center space-x-4">
-                      <span
-                        className={`text-lg font-semibold ${
-                          isDebtor ? "text-red-600" : "text-green-600"
-                        }`}
-                      >
-                        ₹{settlement.amount.toFixed(2)}
-                      </span>
-                      <button
-                        onClick={() => markSettlementComplete(settlement.id)}
-                        className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
-                      >
-                        Mark Paid
-                      </button>
+                    </div>                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <span
+                          className={`text-lg font-semibold ${
+                            isDebtor ? "text-red-600" : "text-green-600"
+                          }`}
+                        >
+                          ₹{settlement.amount.toFixed(2)}
+                        </span>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {isDebtor ? "Check your loans to confirm" : "Waiting for confirmation"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
