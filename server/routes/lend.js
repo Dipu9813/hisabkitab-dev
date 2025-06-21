@@ -74,7 +74,19 @@ router.get("/loans", authenticateToken, async (req, res) => {
   console.log("📋 Fetching loans for user:", userId);
 
   try {
-    // First, get basic loan data
+    // First, get user details to check their phone number for business loans
+    const { data: userDetails, error: userError } = await supabaseAdmin
+      .from("details")
+      .select("full_name, ph_number")
+      .eq("id", userId)
+      .single();
+
+    if (userError) {
+      console.log("❌ User details error:", userError);
+      return res.status(400).json({ error: "Failed to get user details" });
+    }
+
+    // Get basic personal loan data
     const { data: loans, error } = await supabaseAdmin
       .from("loans")
       .select("*")
@@ -86,39 +98,97 @@ router.get("/loans", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    console.log("✅ Found loans:", loans?.length || 0);
+    console.log("✅ Found personal loans:", loans?.length || 0); // Get business loans where the user is the customer (by user ID, name, or phone)
+    const { data: businessLoans, error: businessLoansError } =
+      await supabaseAdmin
+        .from("business_loans")
+        .select(
+          `
+        *,
+        businesses!inner (
+          name,
+          unique_short_id
+        )
+      `
+        )
+        .or(
+          `customer_user_id.eq.${userId},customer_name.ilike.%${userDetails.full_name}%,customer_name.ilike.%${userDetails.ph_number}%`
+        )
+        .eq("is_paid", false)
+        .order("created_at", { ascending: false });
 
-    // Then fetch user details for each unique user ID
+    if (businessLoansError) {
+      console.log("⚠️ Business loans error:", businessLoansError.message);
+      // Continue without business loans
+    }
+
+    console.log("✅ Found business loans:", businessLoans?.length || 0);
+
+    // Get user details for personal loans
     const userIds = new Set();
     loans.forEach((loan) => {
       userIds.add(loan.lender_id);
       userIds.add(loan.receiver_id);
     });
 
-    const { data: userDetails, error: userError } = await supabaseAdmin
+    const { data: allUserDetails, error: allUserError } = await supabaseAdmin
       .from("details")
       .select("id, full_name, ph_number")
       .in("id", Array.from(userIds));
 
-    if (userError) {
-      console.log("⚠️ User details error:", userError.message);
+    if (allUserError) {
+      console.log("⚠️ User details error:", allUserError.message);
       // Continue without user details
     }
 
     // Create user lookup map
     const userMap = {};
-    userDetails?.forEach((user) => {
+    allUserDetails?.forEach((user) => {
       userMap[user.id] = user;
     });
-    // Enrich loans with user details
+
+    // Enrich personal loans with user details
     const enrichedLoans = loans.map((loan) => ({
       ...loan,
+      loan_type: "personal",
       lender: userMap[loan.lender_id] || null,
       receiver: userMap[loan.receiver_id] || null,
     }));
 
-    console.log("✅ Loans with user details prepared");
-    res.json({ data: enrichedLoans });
+    // Transform business loans to match the personal loan structure
+    const transformedBusinessLoans = (businessLoans || []).map(
+      (businessLoan) => ({
+        id: businessLoan.id,
+        amount: businessLoan.amount,
+        reason: businessLoan.description,
+        due_date: null, // Business loans don't have due dates in current schema
+        status: "confirmed", // Business loans are considered confirmed
+        created_at: businessLoan.created_at,
+        updated_at: businessLoan.updated_at,
+        loan_type: "business",
+        business_id: businessLoan.business_id,
+        business_name: businessLoan.businesses.name,
+        business_short_id: businessLoan.businesses.unique_short_id,
+        lender: {
+          id: businessLoan.business_id,
+          full_name: businessLoan.businesses.name,
+          ph_number: businessLoan.businesses.unique_short_id,
+        },
+        receiver: {
+          id: userId,
+          full_name: userDetails.full_name,
+          ph_number: userDetails.ph_number,
+        },
+        customer_name: businessLoan.customer_name,
+        is_paid: businessLoan.is_paid,
+      })
+    );
+
+    // Combine all loans
+    const allLoans = [...enrichedLoans, ...transformedBusinessLoans];
+
+    console.log("✅ Combined loans prepared:", allLoans.length);
+    res.json({ data: allLoans });
   } catch (err) {
     console.error("❌ Error fetching loans:", err);
     res.status(500).json({ error: "Failed to fetch loans" });
@@ -176,12 +246,10 @@ router.post(
       if (loanError || !loan)
         return res.status(404).json({ error: "Loan not found" });
       if (loan.receiver_id !== userId)
-        return res
-          .status(403)
-          .json({
-            error:
-              "Not authorized - only borrowers can request payment confirmation",
-          });
+        return res.status(403).json({
+          error:
+            "Not authorized - only borrowers can request payment confirmation",
+        });
       if (loan.status !== "confirmed")
         return res
           .status(400)
@@ -221,18 +289,14 @@ router.post(
       if (loanError || !loan)
         return res.status(404).json({ error: "Loan not found" });
       if (loan.lender_id !== userId)
-        return res
-          .status(403)
-          .json({
-            error: "Not authorized - only lenders can confirm payments",
-          });
+        return res.status(403).json({
+          error: "Not authorized - only lenders can confirm payments",
+        });
       if (loan.status !== "payment_requested")
-        return res
-          .status(400)
-          .json({
-            error:
-              "Only loans with pending payment requests can be confirmed as paid",
-          });
+        return res.status(400).json({
+          error:
+            "Only loans with pending payment requests can be confirmed as paid",
+        });
       // Insert into loan history
       const { data: historyData, error: historyError } = await supabaseAdmin
         .from("loan_history")
@@ -333,5 +397,98 @@ router.get("/loan-history", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch loan history" });
   }
 });
+
+// Mark business loan as paid (customer can mark their own business loan as paid)
+router.post(
+  "/business-loans/:id/mark-paid",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.sub;
+    const businessLoanId = req.params.id;
+
+    console.log(
+      "💳 Marking business loan as paid:",
+      businessLoanId,
+      "by user:",
+      userId
+    );
+
+    try {
+      // First, get user details to verify they are the customer
+      const { data: userDetails, error: userError } = await supabaseAdmin
+        .from("details")
+        .select("full_name, ph_number")
+        .eq("id", userId)
+        .single();
+
+      if (userError || !userDetails) {
+        return res.status(400).json({ error: "Failed to get user details" });
+      }
+
+      // Get the business loan and verify the user is the customer
+      const { data: businessLoan, error: loanError } = await supabaseAdmin
+        .from("business_loans")
+        .select(
+          `
+        *,
+        businesses!inner (
+          name,
+          unique_short_id
+        )
+      `
+        )
+        .eq("id", businessLoanId)
+        .single();
+
+      if (loanError || !businessLoan) {
+        return res.status(404).json({ error: "Business loan not found" });
+      }
+
+      // Check if the customer name matches the user (by name or phone)
+      const customerName = businessLoan.customer_name.toLowerCase();
+      const userName = userDetails.full_name.toLowerCase();
+      const userPhone = userDetails.ph_number;
+
+      if (
+        !customerName.includes(userName) &&
+        !customerName.includes(userPhone)
+      ) {
+        return res.status(403).json({
+          error: "Not authorized - you can only mark your own loans as paid",
+        });
+      }
+
+      if (businessLoan.is_paid) {
+        return res
+          .status(400)
+          .json({ error: "Loan is already marked as paid" });
+      }
+
+      // Mark the business loan as paid
+      const { data, error } = await supabaseAdmin
+        .from("business_loans")
+        .update({
+          is_paid: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", businessLoanId)
+        .select();
+
+      if (error) {
+        console.error("❌ Error marking business loan as paid:", error);
+        return res.status(400).json({ error: error.message });
+      }
+
+      console.log("✅ Business loan marked as paid successfully");
+      res.json({
+        message: "Business loan marked as paid successfully",
+        data: data[0],
+      });
+    } catch (err) {
+      console.error("❌ Error marking business loan as paid:", err);
+      res.status(500).json({ error: "Failed to mark business loan as paid" });
+    }
+  }
+);
 
 module.exports = router;
