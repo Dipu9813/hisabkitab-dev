@@ -17,15 +17,15 @@ router.get('/profile', authenticateToken, async (req, res) => {
     if (error) {
       return res.status(400).json({ error: error.message });
     }
-    
-    if (!data) {
+      if (!data) {
       return res.json({ 
         data: { 
           id: userId,
           email: req.user.email,
           full_name: req.user.email.split('@')[0], // Default name from email
           ph_number: '',
-          profile_pic: null
+          profile_pic: null,
+          qr_code_pic: null
         } 
       });
     }
@@ -43,14 +43,13 @@ router.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// User profile update: ph_number, full_name, and profile_pic
+// User profile update: ph_number, full_name, profile_pic, and qr_code_pic
 router.post('/profile', authenticateToken, async (req, res) => {
-  const { ph_number, full_name, profile_pic } = req.body;
+  const { ph_number, full_name, profile_pic, qr_code_pic } = req.body;
   const userId = req.user.sub;  if (!ph_number || !full_name) {
     return res.status(400).json({ error: 'ph_number and full_name are required' });
-  }
-  
-  console.log('🔍 Profile update request:', { userId, ph_number, full_name, profile_pic });
+  }  
+  console.log('🔍 Profile update request:', { userId, ph_number, full_name, profile_pic, qr_code_pic });
 
   try {
     // Use supabaseAdmin to bypass RLS policies for profile update
@@ -60,7 +59,8 @@ router.post('/profile', authenticateToken, async (req, res) => {
         id: userId, 
         ph_number, 
         full_name, 
-        profile_pic // Fixed: removed email and profile_url
+        profile_pic,
+        qr_code_pic // Added QR code picture field
       })
       .select();
     
@@ -97,14 +97,66 @@ router.post('/profile/upload', authenticateToken, async (req, res) => {
       console.error("Profile pic upload error:", error);
       return res.status(400).json({ error: error.message });
     }
-    
-    const { data: publicUrlData } = supabaseAdmin.storage.from('profile-pics').getPublicUrl(filePath);
+      const { data: publicUrlData } = supabaseAdmin.storage.from('profile-pics').getPublicUrl(filePath);
     res.json({ url: publicUrlData.publicUrl });
   } catch (err) {
     console.error("Server error during profile picture upload:", err);
     res.status(500).json({ error: 'Failed to upload profile picture' });
   }
-  res.json({ url: publicUrlData.publicUrl });
+});
+
+// QR Code picture upload endpoint
+router.post('/profile/qr-upload', authenticateToken, async (req, res) => {
+  if (!req.headers['content-type']?.startsWith('multipart/form-data')) {
+    return res.status(400).json({ error: 'Invalid content type' });
+  }
+  
+  const userId = req.user.sub;
+  const file = req.files?.qr_code_pic;
+  
+  if (!file) {
+    return res.status(400).json({ error: 'No QR code file uploaded' });
+  }
+
+  // Validate file type (images only)
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(file.mimetype)) {
+    return res.status(400).json({ error: 'Invalid file type. Only images are allowed.' });
+  }
+
+  // Validate file size (max 5MB)
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    return res.status(400).json({ error: 'File too large. Maximum size is 5MB.' });
+  }
+
+  const fileExt = file.name.split('.').pop();
+  const filePath = `qr-codes/${userId}/qr-${Date.now()}.${fileExt}`;
+  
+  try {
+    // Use supabaseAdmin to bypass RLS policies for file upload
+    const { data, error } = await supabaseAdmin.storage
+      .from('profile-pics') // Using existing bucket for now
+      .upload(filePath, file.data, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+      
+    if (error) {
+      console.error("QR code upload error:", error);
+      return res.status(400).json({ error: error.message });
+    }
+    
+    const { data: publicUrlData } = supabaseAdmin.storage
+      .from('profile-pics')
+      .getPublicUrl(filePath);
+    
+    console.log('✅ QR code uploaded successfully:', publicUrlData.publicUrl);
+    res.json({ url: publicUrlData.publicUrl });
+  } catch (err) {
+    console.error("Server error during QR code upload:", err);
+    res.status(500).json({ error: 'Failed to upload QR code picture' });
+  }
 });
 
 module.exports = router;

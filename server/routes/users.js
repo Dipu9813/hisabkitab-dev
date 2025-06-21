@@ -103,4 +103,34 @@ router.get("/users/search", authenticateToken, async (req, res) => {
   }
 });
 
+// Search user by phone number
+router.get('/users/search/:phone', authenticateToken, async (req, res) => {
+  const phoneNumber = req.params.phone;
+  
+  try {
+    console.log('🔍 Searching for user by phone:', phoneNumber);
+    
+    const { data: user, error } = await supabaseAdmin
+      .from('details')
+      .select('id, full_name, ph_number, profile_pic')
+      .eq('ph_number', phoneNumber)
+      .single();
+      
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // User not found
+        return res.status(404).json({ error: 'User not found' });
+      }
+      console.error('Database error:', error);
+      return res.status(400).json({ error: error.message });
+    }
+    
+    console.log('✅ User found:', user);
+    res.json({ data: user });
+  } catch (err) {
+    console.error("Error searching user:", err);
+    res.status(500).json({ error: 'Failed to search user' });
+  }
+});
+
 module.exports = router;
