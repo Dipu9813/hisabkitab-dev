@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { jwtDecode } from "jwt-decode";
 
 interface GroupMember {
   user_id: string;
@@ -44,19 +45,30 @@ export default function AddExpenseForm({
     { value: "medical", label: "Medical", icon: "🏥" },
     { value: "other", label: "Other", icon: "📦" }
   ];
-
   // Initialize with all members selected
   useEffect(() => {
     if (members.length > 0 && selectedParticipants.length === 0) {
       const allMemberIds = members.map(m => m.user_id);
       setSelectedParticipants(allMemberIds);
       
-      // Set first member as default payer
-      if (!payerId) {
-        setPayerId(allMemberIds[0]);
+      // Set current user as default payer
+      if (!payerId && token) {
+        try {
+          const currentUserId = jwtDecode<{ sub: string }>(token).sub;
+          // Check if current user is in the group members
+          if (allMemberIds.includes(currentUserId)) {
+            setPayerId(currentUserId);
+          } else {
+            // Fallback to first member if current user not found
+            setPayerId(allMemberIds[0]);
+          }
+        } catch {
+          // Fallback to first member if JWT decode fails
+          setPayerId(allMemberIds[0]);
+        }
       }
     }
-  }, [members, selectedParticipants.length, payerId]);
+  }, [members, selectedParticipants.length, payerId, token]);
 
   // Calculate split preview when amount or participants change
   useEffect(() => {
