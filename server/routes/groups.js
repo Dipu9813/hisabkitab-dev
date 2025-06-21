@@ -78,7 +78,6 @@ router.post("/groups", authenticateToken, async (req, res) => {
         .status(400)
         .json({ error: "Failed to create group: " + groupError.message });
     }
-
     console.log("✅ Group created:", group);
 
     // Add members to the group (including creator)
@@ -87,11 +86,20 @@ router.post("/groups", authenticateToken, async (req, res) => {
       memberIds.push(creatorId);
     }
 
-    const groupMembers = memberIds.map((memberId) => ({
+    console.log("🔍 Member IDs to add:", memberIds);
+    console.log("🔍 Creator ID:", creatorId);
+
+    // Remove duplicates to avoid constraint errors
+    const uniqueMemberIds = [...new Set(memberIds)];
+    console.log("🔍 Unique member IDs:", uniqueMemberIds);
+
+    const groupMembers = uniqueMemberIds.map((memberId) => ({
       group_id: group.id,
       user_id: memberId,
       joined_at: new Date().toISOString(),
     }));
+
+    console.log("🔍 Group members to insert:", groupMembers);
 
     const { data: members, error: membersError } = await supabaseAdmin
       .from("group_members")
@@ -99,7 +107,11 @@ router.post("/groups", authenticateToken, async (req, res) => {
       .select();
 
     if (membersError) {
-      return res.status(400).json({ error: "Failed to add group members" });
+      console.error("❌ Members insertion error:", membersError);
+      return res.status(400).json({
+        error: "Failed to add group members",
+        details: membersError.message,
+      });
     }
 
     res.json({
