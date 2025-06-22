@@ -7,6 +7,22 @@ const authenticateToken = require("../middleware/authenticateToken");
 router.get("/users", authenticateToken, async (req, res) => {
   try {
     console.log("🔍 Fetching users from database...");
+    console.log("🔍 Request from user:", req.user?.sub, req.user?.email);
+
+    // Debug: Check if this is the Manee user
+    try {
+      const { data: currentUser } = await supabaseAdmin
+        .from('details')
+        .select('id, full_name, ph_number, email')
+        .eq('id', req.user.sub)
+        .single();
+      
+      if (currentUser && currentUser.full_name && currentUser.full_name.toLowerCase().includes('manee')) {
+        console.log('🚨 MANEE USER REQUESTING USERS LIST:', currentUser);
+      }
+    } catch (debugErr) {
+      console.log('⚠️ Debug user lookup failed:', debugErr.message);
+    }
 
     const { data, error } = await supabaseAdmin
       .from("details")

@@ -20,6 +20,7 @@ interface CustomerLoansListProps {
   token: string;
   onLoanStatusUpdated: () => void;
   searchTerm: string;
+  onAddLoan?: () => void;
 }
 
 export default function CustomerLoansList({
@@ -28,6 +29,7 @@ export default function CustomerLoansList({
   token,
   onLoanStatusUpdated,
   searchTerm,
+  onAddLoan,
 }: CustomerLoansListProps) {
   const [updatingLoanId, setUpdatingLoanId] = useState<string | null>(null);
 
@@ -107,8 +109,7 @@ export default function CustomerLoansList({
 
   if (loans.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-8">
-        <div className="text-center text-gray-500">
+      <div className="bg-white rounded-lg shadow p-8">        <div className="text-center text-gray-500">
           <svg
             className="mx-auto h-16 w-16 text-gray-400 mb-4"
             fill="none"
@@ -125,11 +126,22 @@ export default function CustomerLoansList({
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {searchTerm ? "No matching loans found" : "No customer loans yet"}
           </h3>
-          <p className="text-gray-500">
+          <p className="text-gray-500 mb-4">
             {searchTerm
               ? `No loans match "${searchTerm}". Try a different search term.`
               : "Add your first customer loan to start tracking credits and payments."}
           </p>
+          {!searchTerm && onAddLoan && (
+            <button
+              onClick={onAddLoan}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md text-sm font-medium flex items-center gap-2 mx-auto"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Your First Customer Loan
+            </button>
+          )}
         </div>
       </div>
     );

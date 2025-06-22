@@ -20,6 +20,31 @@ router.post("/groups", authenticateToken, async (req, res) => {
     userObject: req.user,
   });
 
+  // Special debugging for specific users (like Manee)
+  try {
+    const { data: creatorUser, error: creatorError } = await supabaseAdmin
+      .from("details")
+      .select("id, full_name, ph_number, email")
+      .eq("id", creatorId)
+      .single();
+    
+    if (creatorUser) {
+      console.log("🔍 Creator details:", {
+        id: creatorUser.id,
+        name: creatorUser.full_name,
+        phone: creatorUser.ph_number,
+        email: creatorUser.email
+      });
+      
+      // Check if this is a problematic user
+      if (creatorUser.full_name && creatorUser.full_name.toLowerCase().includes('manee')) {
+        console.log("🚨 MANEE USER DETECTED - Adding extra debugging...");
+      }
+    }
+  } catch (debugError) {
+    console.log("⚠️ Debug info fetch failed:", debugError.message);
+  }
+
   if (!name || !memberPhones || !Array.isArray(memberPhones)) {
     console.log("❌ Validation failed:", { name, memberPhones });
     return res

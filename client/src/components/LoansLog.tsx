@@ -27,11 +27,27 @@ export default function LoansLog({ token }: { token: string }) {
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         throw new Error(`Expected JSON but got ${contentType}`);
-      }
-
-      const data = await res.json();
+      }      const data = await res.json();
       if (!data.data) {
         throw new Error("Invalid response format");
+      }      console.log("🔍 Fetched loans data:", data.data);
+      // Debug: Log first business loan to check structure
+      const businessLoan = data.data.find((loan: any) => loan.loan_type === "business");
+      if (businessLoan) {
+        console.log("🔍 Sample business loan structure:", businessLoan);
+      }
+      
+      // Debug: Count loans by type
+      const businessLoans = data.data.filter((loan: any) => loan.loan_type === "business");
+      const personalLoans = data.data.filter((loan: any) => loan.loan_type === "personal" || !loan.loan_type);
+      console.log("📊 Loan counts - Business:", businessLoans.length, "Personal:", personalLoans.length);
+      
+      // Debug: Show all business loans for current user
+      const myBusinessLoans = businessLoans.filter((loan: any) => loan.receiver_id === currentUserId);
+      console.log("🏢 My business loans:", myBusinessLoans);
+      
+      if (myBusinessLoans.length > 0) {
+        console.log("🔍 First business loan details:", myBusinessLoans[0]);
       }
 
       setLoans(data.data);
@@ -160,16 +176,22 @@ export default function LoansLog({ token }: { token: string }) {
       setError(err.message || "Failed to confirm payment");
     }
   };
-
-  const markBusinessLoanPaid = async (id: string) => {
+  const requestBusinessLoanPayment = async (id: string, paymentMethod?: string, paymentReference?: string) => {
     setError("");
     setSuccess("");
     try {
       const res = await fetch(
-        `http://localhost:3000/business-loans/${id}/mark-paid`,
+        `http://localhost:3000/business-loans/${id}/request-paid`,
         {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            payment_method: paymentMethod,
+            payment_reference: paymentReference
+          })
         }
       );
 
@@ -183,11 +205,11 @@ export default function LoansLog({ token }: { token: string }) {
       }
 
       const data = await res.json();
-      setSuccess("Business loan marked as paid!");
+      setSuccess("Payment verification requested! The business will verify and approve your payment.");
       fetchLoans();
     } catch (err: any) {
-      console.error("Error marking business loan as paid:", err);
-      setError(err.message || "Failed to mark business loan as paid");
+      console.error("Error requesting payment verification:", err);
+      setError(err.message || "Failed to request payment verification");
     }
   };
   return (
@@ -214,11 +236,10 @@ export default function LoansLog({ token }: { token: string }) {
             <h4 className="font-medium mb-2 text-orange-600">
               ⏳ Pending Payment Approvals
             </h4>
-            <div className="space-y-2">
-              {loans
+            <div className="space-y-2">              {loans
                 .filter(
                   (loan) =>
-                    (loan.loan_type === "personal" || !loan.loan_type) &&
+                    loan.loan_type === "personal" &&
                     loan.lender_id === currentUserId &&
                     loan.status === "payment_requested"
                 )
@@ -257,10 +278,9 @@ export default function LoansLog({ token }: { token: string }) {
                       </button>
                     </div>
                   </div>
-                ))}
-              {loans.filter(
+                ))}              {loans.filter(
                 (loan) =>
-                  (loan.loan_type === "personal" || !loan.loan_type) &&
+                  loan.loan_type === "personal" &&
                   loan.lender_id === currentUserId &&
                   loan.status === "payment_requested"
               ).length === 0 && (
@@ -273,11 +293,10 @@ export default function LoansLog({ token }: { token: string }) {
           {/* Active Loans Given */}
           <div>
             <h4 className="font-medium mb-2 text-blue-600">📋 Active Loans</h4>
-            <div className="space-y-2">
-              {loans
+            <div className="space-y-2">              {loans
                 .filter(
                   (loan) =>
-                    (loan.loan_type === "personal" || !loan.loan_type) &&
+                    loan.loan_type === "personal" &&
                     loan.lender_id === currentUserId &&
                     ["pending", "confirmed"].includes(loan.status)
                 )
@@ -317,10 +336,9 @@ export default function LoansLog({ token }: { token: string }) {
                       )}
                     </div>
                   </div>
-                ))}
-              {loans.filter(
+                ))}              {loans.filter(
                 (loan) =>
-                  (loan.loan_type === "personal" || !loan.loan_type) &&
+                  loan.loan_type === "personal" &&
                   loan.lender_id === currentUserId &&
                   ["pending", "confirmed"].includes(loan.status)
               ).length === 0 && (
@@ -371,27 +389,45 @@ export default function LoansLog({ token }: { token: string }) {
                     <p>
                       <strong>Date:</strong>{" "}
                       {new Date(loan.created_at).toLocaleDateString()}
-                    </p>
-
-                    <div className="mt-3 flex items-center justify-between">
-                      <div>
+                    </p>                    <div className="mt-3 flex items-center justify-between">
+                      <div className="flex flex-col gap-1">
                         {loan.is_paid ? (
                           <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
-                            Paid
+                            ✅ Paid
+                          </span>
+                        ) : loan.verification_status === 'pending' ? (
+                          <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">
+                            ⏳ Verification Pending
+                          </span>
+                        ) : loan.verification_status === 'rejected' ? (
+                          <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">
+                            ❌ Payment Rejected
                           </span>
                         ) : (
                           <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">
-                            Unpaid
+                            💰 Unpaid
+                          </span>
+                        )}
+                        
+                        {loan.verification_status === 'rejected' && loan.rejection_reason && (
+                          <span className="text-xs text-red-600">
+                            Reason: {loan.rejection_reason}
+                          </span>
+                        )}
+                        
+                        {loan.verification_status === 'pending' && loan.payment_requested_at && (
+                          <span className="text-xs text-gray-600">
+                            Requested: {new Date(loan.payment_requested_at).toLocaleDateString()}
                           </span>
                         )}
                       </div>
 
-                      {!loan.is_paid && (
+                      {!loan.is_paid && loan.verification_status !== 'pending' && (
                         <button
-                          onClick={() => markBusinessLoanPaid(loan.id)}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                          onClick={() => requestBusinessLoanPayment(loan.id)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
                         >
-                          Mark as Paid
+                          📝 Request Verification
                         </button>
                       )}
                     </div>
@@ -412,11 +448,10 @@ export default function LoansLog({ token }: { token: string }) {
             <h4 className="font-medium mb-2 text-green-600">
               👤 Personal Loans
             </h4>
-            <div className="space-y-2">
-              {loans
+            <div className="space-y-2">              {loans
                 .filter(
                   (loan) =>
-                    (loan.loan_type === "personal" || !loan.loan_type) &&
+                    loan.loan_type === "personal" &&
                     loan.receiver_id === currentUserId
                 )
                 .map((loan) => (
@@ -488,18 +523,47 @@ export default function LoansLog({ token }: { token: string }) {
                       </div>
                     )}
                   </div>
-                ))}
-              {loans.filter(
+                ))}              {loans.filter(
                 (loan) =>
-                  (loan.loan_type === "personal" || !loan.loan_type) &&
+                  loan.loan_type === "personal" &&
                   loan.receiver_id === currentUserId
-              ).length === 0 && (
-                <p className="text-gray-500 italic">
+              ).length === 0 && (                <p className="text-gray-500 italic">
                   No personal loans received
                 </p>
               )}
             </div>
           </div>
+
+          {/* Debug: Unclassified Loans Section */}
+          {loans.filter((loan) => !loan.loan_type && loan.receiver_id === currentUserId).length > 0 && (
+            <div className="mt-6">
+              <h4 className="font-medium mb-2 text-red-600">
+                ⚠️ Unclassified Loans (Debug)
+              </h4>
+              <div className="space-y-2">
+                {loans
+                  .filter((loan) => !loan.loan_type && loan.receiver_id === currentUserId)
+                  .map((loan) => (
+                    <div key={loan.id} className="border rounded p-3 bg-red-50">
+                      <p><strong>From:</strong> {loan.lender?.full_name || "Unknown"}</p>
+                      <p><strong>Amount:</strong> ${loan.amount}</p>
+                      <p><strong>Status:</strong> {loan.status}</p>
+                      <p><strong>loan_type:</strong> {loan.loan_type || "MISSING"}</p>
+                      <div className="mt-3">
+                        {loan.status === "confirmed" && (
+                          <button
+                            onClick={() => requestPayment(loan.id)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                          >
+                            Mark as Paid (Legacy)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

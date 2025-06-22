@@ -105,12 +105,10 @@ export default function CustomerLoansManager({
     0
   );
   const totalPaidAmount = paidLoans.reduce((sum, loan) => sum + loan.amount, 0);
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       {/* Business Header */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-start">
+      <div className="bg-white rounded-lg shadow p-6"><div className="flex justify-between items-start">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
               {business.name}
@@ -130,12 +128,20 @@ export default function CustomerLoansManager({
               </span>
             </div>
           </div>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-          >
-            Add Customer Loan
-          </button>
+          <div className="flex flex-col space-y-2">
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md text-sm font-medium flex items-center gap-2 shadow-md"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Customer Loan
+            </button>
+            <p className="text-xs text-gray-500 text-center">
+              Record new loan to customer
+            </p>
+          </div>
         </div>
       </div>
 
@@ -220,16 +226,28 @@ export default function CustomerLoansManager({
             />
           </div>
         </div>
-      )}
-
-      {/* Loans List */}
+      )}      {/* Loans List */}
       <CustomerLoansList
         loans={filteredLoans}
         loading={loading}
         token={token}
         onLoanStatusUpdated={handleLoanStatusUpdated}
         searchTerm={searchTerm}
+        onAddLoan={() => setShowAddForm(true)}
       />
+
+      {/* Floating Action Button - Only show when there are loans */}
+      {loans.length > 0 && (
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg z-40 transition-all duration-200 hover:scale-110"
+          title="Add Customer Loan"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

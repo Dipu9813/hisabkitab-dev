@@ -86,15 +86,14 @@ router.post("/business/create", authenticateToken, async (req, res) => {
     }
 
     business = newBusiness;
-    console.log("✅ Business created:", business);
-
-    // Auto-join the creator as a member
+    console.log("✅ Business created:", business);    // Auto-join the creator as a member with owner role
     const { data: membership, error: memberError } = await supabaseAdmin
       .from("business_members")
       .insert([
         {
           business_id: business.id,
           user_id: creatorId,
+          role: 'owner' // Creator gets owner role
         },
       ])
       .select()
@@ -187,15 +186,13 @@ router.post("/business/join", authenticateToken, async (req, res) => {
       return res
         .status(500)
         .json({ error: "Failed to check membership status" });
-    }
-
-    // Add user as member
+    }    // Add user as member
     const { data: newMembership, error: joinError } = await supabaseAdmin
       .from("business_members")
-      .insert([
-        {
+      .insert([        {
           business_id: business.id,
           user_id: userId,
+          role: 'member' // Default role for joining users
         },
       ])
       .select()
@@ -730,12 +727,861 @@ router.post(
       res.json({
         message: "Business loan marked as paid successfully",
         loan: updatedLoan,
-      });
-    } catch (err) {
+      });    } catch (err) {
       console.error("❌ Error marking business loan as paid:", err);
       res.status(500).json({ error: "Failed to mark business loan as paid" });
     }
   }
 );
+
+// Get business members (for business owner or members)
+router.get("/business/:businessId/members", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+  const businessId = req.params.businessId;
+
+  console.log("👥 Get business members request:", { businessId, userId });
+
+  try {
+    // Verify user is a member of the business
+    const { data: membership, error: membershipError } = await supabaseAdmin
+      .from("business_members")
+      .select("*")
+      .eq("business_id", businessId)
+      .eq("user_id", userId)
+      .single();
+
+    if (membershipError || !membership) {
+      return res.status(403).json({ 
+        error: "Access denied. You must be a member of this business." 
+      });
+    }
+
+    // Get business details to check if user is the owner
+    const { data: business, error: businessError } = await supabaseAdmin
+      .from("businesses")
+      .select("created_by, name")
+      .eq("id", businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const isOwner = business.created_by === userId;
+    
+    console.log("🔍 Ownership check:", {
+      businessId,
+      userId,
+      createdBy: business.created_by,
+      isOwner,
+      businessName: business.name
+    });    // Get all business members with their details
+    const { data: members, error: membersError } = await supabaseAdmin
+      .from("business_members")
+      .select(`
+        user_id,
+        joined_at,
+        role,
+        details:user_id (
+          id,
+          full_name,
+          ph_number,
+          profile_pic
+        )
+      `)
+      .eq("business_id", businessId)
+      .order("joined_at", { ascending: true });
+
+    if (membersError) {
+      console.error("❌ Error fetching business members:", membersError);
+      return res.status(400).json({ error: "Failed to fetch business members" });
+    }    // Enrich member data with role information
+    const enrichedMembers = members.map(member => ({
+      user_id: member.user_id,
+      joined_at: member.joined_at,
+      role: member.role,
+      is_owner: member.user_id === business.created_by,
+      details: member.details
+    }));
+
+    res.json({
+      business: {
+        id: businessId,
+        name: business.name,
+        is_owner: isOwner
+      },
+      members: enrichedMembers
+    });
+
+  } catch (err) {
+    console.error("❌ Error fetching business members:", err);
+    res.status(500).json({ error: "Failed to fetch business members" });
+  }
+});
+
+// Add member to business (business owner only)
+router.post("/business/:businessId/members", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+  const businessId = req.params.businessId;
+  const { phone_number } = req.body;
+
+  console.log("➕ Add business member request:", { businessId, userId, phone_number });
+
+  if (!phone_number) {
+    return res.status(400).json({ error: "Phone number is required" });
+  }
+
+  try {
+    // Verify user is the business owner
+    const { data: business, error: businessError } = await supabaseAdmin
+      .from("businesses")
+      .select("created_by, name")
+      .eq("id", businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (business.created_by !== userId) {
+      return res.status(403).json({ 
+        error: "Access denied. Only the business owner can add members." 
+      });
+    }
+
+    // Find user by phone number
+    const { data: targetUser, error: userError } = await supabaseAdmin
+      .from("details")
+      .select("id, full_name, ph_number")
+      .eq("ph_number", phone_number)
+      .single();
+
+    if (userError || !targetUser) {
+      return res.status(404).json({ 
+        error: "User not found with the provided phone number" 
+      });
+    }
+
+    // Check if user is already a member
+    const { data: existingMembership, error: membershipCheckError } = await supabaseAdmin
+      .from("business_members")
+      .select("*")
+      .eq("business_id", businessId)
+      .eq("user_id", targetUser.id)
+      .single();
+
+    if (existingMembership) {
+      return res.status(400).json({ 
+        error: "User is already a member of this business" 
+      });
+    }
+
+    if (membershipCheckError && membershipCheckError.code !== "PGRST116") {
+      console.error("❌ Error checking membership:", membershipCheckError);
+      return res.status(500).json({ error: "Failed to check membership status" });
+    }    // Add user as business member
+    const { data: newMembership, error: addMemberError } = await supabaseAdmin
+      .from("business_members")
+      .insert([
+        {
+          business_id: businessId,
+          user_id: targetUser.id,
+          role: 'member' // Default role for added members
+        }
+      ])
+      .select()
+      .single();
+
+    if (addMemberError) {
+      console.error("❌ Error adding business member:", addMemberError);
+      return res.status(400).json({ error: "Failed to add member to business" });
+    }
+
+    console.log("✅ Member added successfully:", newMembership);    res.json({
+      message: "Member added successfully",
+      member: {        user_id: targetUser.id,
+        full_name: targetUser.full_name,
+        phone_number: targetUser.ph_number,
+        joined_at: newMembership.joined_at,
+        role: newMembership.role || 'member',
+        is_owner: false
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Error adding business member:", err);
+    res.status(500).json({ error: "Failed to add business member" });
+  }
+});
+
+// Remove member from business (business owner only)
+router.delete("/business/:businessId/members/:memberId", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+  const businessId = req.params.businessId;
+  const memberId = req.params.memberId;
+
+  console.log("➖ Remove business member request:", { businessId, userId, memberId });
+
+  try {
+    // Verify user is the business owner
+    const { data: business, error: businessError } = await supabaseAdmin
+      .from("businesses")
+      .select("created_by, name")
+      .eq("id", businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (business.created_by !== userId) {
+      return res.status(403).json({ 
+        error: "Access denied. Only the business owner can remove members." 
+      });
+    }
+
+    // Prevent owner from removing themselves
+    if (memberId === userId) {
+      return res.status(400).json({ 
+        error: "Business owner cannot remove themselves. Transfer ownership first or delete the business." 
+      });
+    }
+
+    // Check if the member exists
+    const { data: memberToRemove, error: memberCheckError } = await supabaseAdmin
+      .from("business_members")
+      .select(`
+        *,
+        details:user_id (
+          full_name,
+          ph_number
+        )
+      `)
+      .eq("business_id", businessId)
+      .eq("user_id", memberId)
+      .single();
+
+    if (memberCheckError || !memberToRemove) {
+      return res.status(404).json({ 
+        error: "Member not found in this business" 
+      });
+    }
+
+    // Remove the member
+    const { error: removeError } = await supabaseAdmin
+      .from("business_members")
+      .delete()
+      .eq("business_id", businessId)
+      .eq("user_id", memberId);
+
+    if (removeError) {
+      console.error("❌ Error removing business member:", removeError);
+      return res.status(400).json({ error: "Failed to remove member from business" });
+    }
+
+    console.log("✅ Member removed successfully:", memberId);
+
+    res.json({
+      message: "Member removed successfully",
+      removed_member: {
+        user_id: memberId,
+        full_name: memberToRemove.details?.full_name,
+        phone_number: memberToRemove.details?.ph_number
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Error removing business member:", err);
+    res.status(500).json({ error: "Failed to remove business member" });
+  }
+});
+
+// Update member role (business owner only)
+router.patch("/business/:businessId/members/:memberId/role", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+  const businessId = req.params.businessId;
+  const memberId = req.params.memberId;
+  const { role } = req.body;
+
+  console.log("🔄 Update member role request:", { businessId, userId, memberId, role });
+
+  const validRoles = ['member', 'admin', 'viewer'];
+  if (!role || !validRoles.includes(role)) {
+    return res.status(400).json({ 
+      error: `Invalid role. Must be one of: ${validRoles.join(', ')}` 
+    });
+  }
+
+  try {
+    // Verify user is the business owner
+    const { data: business, error: businessError } = await supabaseAdmin
+      .from("businesses")
+      .select("created_by, name")
+      .eq("id", businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (business.created_by !== userId) {
+      return res.status(403).json({ 
+        error: "Access denied. Only the business owner can update member roles." 
+      });
+    }
+
+    // Prevent changing owner's role
+    if (memberId === userId) {
+      return res.status(400).json({ 
+        error: "Cannot change role of business owner" 
+      });
+    }
+
+    // Check if the member exists
+    const { data: memberToUpdate, error: memberCheckError } = await supabaseAdmin
+      .from("business_members")
+      .select(`
+        *,
+        details:user_id (
+          full_name,
+          ph_number
+        )
+      `)
+      .eq("business_id", businessId)
+      .eq("user_id", memberId)
+      .single();
+
+    if (memberCheckError || !memberToUpdate) {
+      return res.status(404).json({ 
+        error: "Member not found in this business" 
+      });
+    }
+
+    // Update the member's role
+    const { data: updatedMember, error: updateError } = await supabaseAdmin
+      .from("business_members")
+      .update({ 
+        role: role,
+        updated_at: new Date().toISOString()
+      })
+      .eq("business_id", businessId)
+      .eq("user_id", memberId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error("❌ Error updating member role:", updateError);
+      return res.status(400).json({ error: "Failed to update member role" });
+    }
+
+    console.log("✅ Member role updated successfully:", updatedMember);
+
+    res.json({
+      message: "Member role updated successfully",
+      member: {
+        user_id: memberId,
+        full_name: memberToUpdate.details?.full_name,
+        phone_number: memberToUpdate.details?.ph_number,
+        role: role,
+        updated_at: updatedMember.updated_at
+      }
+    });  } catch (err) {
+    console.error("❌ Error updating member role:", err);
+    res.status(500).json({ error: "Failed to update member role" });
+  }
+});
+
+// Remove member from business (business owner only)
+router.delete("/business/:businessId/members/:memberId", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+  const businessId = req.params.businessId;
+  const memberId = req.params.memberId;
+
+  console.log("➖ Remove business member request:", { businessId, userId, memberId });
+
+  try {
+    // Verify user is the business owner
+    const { data: business, error: businessError } = await supabaseAdmin
+      .from("businesses")
+      .select("created_by, name")
+      .eq("id", businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (business.created_by !== userId) {
+      return res.status(403).json({ 
+        error: "Access denied. Only the business owner can remove members." 
+      });
+    }
+
+    // Prevent owner from removing themselves
+    if (memberId === userId) {
+      return res.status(400).json({ 
+        error: "Business owner cannot remove themselves. Transfer ownership first or delete the business." 
+      });
+    }
+
+    // Check if the member exists
+    const { data: memberToRemove, error: memberCheckError } = await supabaseAdmin
+      .from("business_members")
+      .select(`
+        *,
+        details:user_id (
+          full_name,
+          ph_number
+        )
+      `)
+      .eq("business_id", businessId)
+      .eq("user_id", memberId)
+      .single();
+
+    if (memberCheckError || !memberToRemove) {
+      return res.status(404).json({ 
+        error: "Member not found in this business" 
+      });
+    }
+
+    // Remove the member
+    const { error: removeError } = await supabaseAdmin
+      .from("business_members")
+      .delete()
+      .eq("business_id", businessId)
+      .eq("user_id", memberId);
+
+    if (removeError) {
+      console.error("❌ Error removing business member:", removeError);
+      return res.status(400).json({ error: "Failed to remove member from business" });
+    }
+
+    console.log("✅ Member removed successfully:", memberId);
+
+    res.json({
+      message: "Member removed successfully",
+      removed_member: {
+        user_id: memberId,
+        full_name: memberToRemove.details?.full_name,
+        phone_number: memberToRemove.details?.ph_number
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Error removing business member:", err);
+    res.status(500).json({ error: "Failed to remove business member" });
+  }
+});
+
+// Leave business (for business members)
+router.post("/business/:businessId/leave", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+  const businessId = req.params.businessId;
+
+  console.log("🚪 Leave business request:", { businessId, userId });
+
+  try {
+    // Verify user is a member of the business
+    const { data: membership, error: membershipError } = await supabaseAdmin
+      .from("business_members")
+      .select("*")
+      .eq("business_id", businessId)
+      .eq("user_id", userId)
+      .single();
+
+    if (membershipError || !membership) {
+      return res.status(404).json({ 
+        error: "You are not a member of this business" 
+      });
+    }
+
+    // Check if user is the business owner
+    const { data: business, error: businessError } = await supabaseAdmin
+      .from("businesses")
+      .select("created_by, name")
+      .eq("id", businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (business.created_by === userId) {
+      return res.status(400).json({ 
+        error: "Business owner cannot leave the business. Transfer ownership first or delete the business." 
+      });
+    }
+
+    // Remove the user from business members
+    const { error: leaveError } = await supabaseAdmin
+      .from("business_members")
+      .delete()
+      .eq("business_id", businessId)
+      .eq("user_id", userId);
+
+    if (leaveError) {
+      console.error("❌ Error leaving business:", leaveError);
+      return res.status(400).json({ error: "Failed to leave business" });
+    }
+
+    console.log("✅ User left business successfully:", userId);
+
+    res.json({
+      message: "Successfully left the business",
+      business: {
+        id: businessId,
+        name: business.name
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Error leaving business:", err);
+    res.status(500).json({ error: "Failed to leave business" });
+  }
+});
+
+// Transfer ownership (business owner only)
+router.post("/business/:businessId/transfer-ownership", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+  const businessId = req.params.businessId;
+  const { new_owner_id } = req.body;
+
+  console.log("👑 Transfer ownership request:", { businessId, userId, new_owner_id });
+
+  if (!new_owner_id) {
+    return res.status(400).json({ error: "New owner ID is required" });
+  }
+
+  try {
+    // Verify user is the current business owner
+    const { data: business, error: businessError } = await supabaseAdmin
+      .from("businesses")
+      .select("created_by, name")
+      .eq("id", businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (business.created_by !== userId) {
+      return res.status(403).json({ 
+        error: "Access denied. Only the business owner can transfer ownership." 
+      });
+    }
+
+    // Verify new owner is a member of the business
+    const { data: newOwnerMembership, error: membershipError } = await supabaseAdmin
+      .from("business_members")
+      .select(`
+        *,
+        details:user_id (
+          full_name,
+          ph_number
+        )
+      `)
+      .eq("business_id", businessId)
+      .eq("user_id", new_owner_id)
+      .single();
+
+    if (membershipError || !newOwnerMembership) {
+      return res.status(400).json({ 
+        error: "New owner must be an existing member of the business" 
+      });
+    }
+
+    // Update business owner
+    const { error: updateError } = await supabaseAdmin
+      .from("businesses")
+      .update({ 
+        created_by: new_owner_id,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", businessId);
+
+    if (updateError) {
+      console.error("❌ Error transferring ownership:", updateError);
+      return res.status(400).json({ error: "Failed to transfer ownership" });
+    }
+
+    console.log("✅ Ownership transferred successfully");
+
+    res.json({
+      message: "Ownership transferred successfully",
+      new_owner: {
+        id: new_owner_id,
+        name: newOwnerMembership.details.full_name,
+        phone: newOwnerMembership.details.ph_number
+      },
+      business: {
+        id: businessId,
+        name: business.name
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Error transferring ownership:", err);
+    res.status(500).json({ error: "Failed to transfer ownership" });
+  }
+});
+
+// Bulk add members (business owner only)
+router.post("/business/:businessId/members/bulk", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+  const businessId = req.params.businessId;
+  const { phone_numbers, role = 'member' } = req.body;
+
+  console.log("👥 Bulk add members request:", { businessId, userId, phone_numbers, role });
+
+  if (!phone_numbers || !Array.isArray(phone_numbers) || phone_numbers.length === 0) {
+    return res.status(400).json({ error: "Phone numbers array is required" });
+  }
+
+  if (phone_numbers.length > 50) {
+    return res.status(400).json({ error: "Cannot add more than 50 members at once" });
+  }
+
+  try {
+    // Verify user is the business owner
+    const { data: business, error: businessError } = await supabaseAdmin
+      .from("businesses")
+      .select("created_by, name")
+      .eq("id", businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (business.created_by !== userId) {
+      return res.status(403).json({ 
+        error: "Access denied. Only the business owner can add members." 
+      });
+    }
+
+    const results = {
+      successful: [],
+      failed: [],
+      skipped: []
+    };
+
+    // Process each phone number
+    for (const phone_number of phone_numbers) {
+      try {
+        // Find user by phone number
+        const { data: targetUser, error: userError } = await supabaseAdmin
+          .from("details")
+          .select("id, full_name, ph_number")
+          .eq("ph_number", phone_number.trim())
+          .single();
+
+        if (userError || !targetUser) {
+          results.failed.push({
+            phone_number,
+            error: "User not found"
+          });
+          continue;
+        }
+
+        // Check if user is already a member
+        const { data: existingMembership, error: membershipCheckError } = await supabaseAdmin
+          .from("business_members")
+          .select("*")
+          .eq("business_id", businessId)
+          .eq("user_id", targetUser.id)
+          .single();
+
+        if (existingMembership) {
+          results.skipped.push({
+            phone_number,
+            user_name: targetUser.full_name,
+            reason: "Already a member"
+          });
+          continue;
+        }
+
+        if (membershipCheckError && membershipCheckError.code !== "PGRST116") {
+          results.failed.push({
+            phone_number,
+            error: "Failed to check membership status"
+          });
+          continue;
+        }        // Add user as business member
+        const { data: newMembership, error: addMemberError } = await supabaseAdmin
+          .from("business_members")
+          .insert([
+            {
+              business_id: businessId,
+              user_id: targetUser.id,
+              role: role // Use the specified role
+            }
+          ])
+          .select()
+          .single();
+
+        if (addMemberError) {
+          results.failed.push({
+            phone_number,
+            error: "Failed to add as member"
+          });
+          continue;
+        }
+
+        results.successful.push({
+          phone_number,
+          user_id: targetUser.id,
+          user_name: targetUser.full_name,
+          role: role,
+          joined_at: newMembership.joined_at
+        });
+
+      } catch (err) {
+        results.failed.push({
+          phone_number,
+          error: "Unexpected error occurred"
+        });
+      }
+    }
+
+    console.log("✅ Bulk add completed:", results);
+
+    res.json({
+      message: "Bulk member addition completed",
+      results: results,
+      summary: {
+        total: phone_numbers.length,
+        successful: results.successful.length,
+        failed: results.failed.length,
+        skipped: results.skipped.length
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Error in bulk add members:", err);
+    res.status(500).json({ error: "Failed to process bulk member addition" });
+  }
+});
+
+// Bulk remove members (business owner only)
+router.delete("/business/:businessId/members/bulk", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+  const businessId = req.params.businessId;
+  const { member_ids } = req.body;
+
+  console.log("👥 Bulk remove members request:", { businessId, userId, member_ids });
+
+  if (!member_ids || !Array.isArray(member_ids) || member_ids.length === 0) {
+    return res.status(400).json({ error: "Member IDs array is required" });
+  }
+
+  if (member_ids.length > 50) {
+    return res.status(400).json({ error: "Cannot remove more than 50 members at once" });
+  }
+
+  try {
+    // Verify user is the business owner
+    const { data: business, error: businessError } = await supabaseAdmin
+      .from("businesses")
+      .select("created_by, name")
+      .eq("id", businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (business.created_by !== userId) {
+      return res.status(403).json({ 
+        error: "Access denied. Only the business owner can remove members." 
+      });
+    }
+
+    const results = {
+      successful: [],
+      failed: [],
+      skipped: []
+    };
+
+    // Process each member ID
+    for (const memberId of member_ids) {
+      try {
+        // Prevent owner from removing themselves
+        if (memberId === userId) {
+          results.skipped.push({
+            member_id: memberId,
+            reason: "Cannot remove business owner"
+          });
+          continue;
+        }
+
+        // Check if the member exists
+        const { data: memberToRemove, error: memberCheckError } = await supabaseAdmin
+          .from("business_members")
+          .select(`
+            *,
+            details:user_id (
+              full_name,
+              ph_number
+            )
+          `)
+          .eq("business_id", businessId)
+          .eq("user_id", memberId)
+          .single();
+
+        if (memberCheckError || !memberToRemove) {
+          results.failed.push({
+            member_id: memberId,
+            error: "Member not found in business"
+          });
+          continue;
+        }
+
+        // Remove the member
+        const { error: removeError } = await supabaseAdmin
+          .from("business_members")
+          .delete()
+          .eq("business_id", businessId)
+          .eq("user_id", memberId);
+
+        if (removeError) {
+          results.failed.push({
+            member_id: memberId,
+            error: "Failed to remove member"
+          });
+          continue;
+        }
+
+        results.successful.push({
+          member_id: memberId,
+          user_name: memberToRemove.details?.full_name,
+          phone_number: memberToRemove.details?.ph_number
+        });
+
+      } catch (err) {
+        results.failed.push({
+          member_id: memberId,
+          error: "Unexpected error occurred"
+        });
+      }
+    }
+
+    console.log("✅ Bulk remove completed:", results);
+
+    res.json({
+      message: "Bulk member removal completed",
+      results: results,
+      summary: {
+        total: member_ids.length,
+        successful: results.successful.length,
+        failed: results.failed.length,
+        skipped: results.skipped.length
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Error in bulk remove members:", err);
+    res.status(500).json({ error: "Failed to process bulk member removal" });
+  }
+});
 
 module.exports = router;

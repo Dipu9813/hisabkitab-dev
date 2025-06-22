@@ -21,11 +21,51 @@ export default function CreateGroup({ token, onClose, onGroupCreated }: CreateGr
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  // Debug token on component mount
+  useEffect(() => {
+    console.log("🔍 CreateGroup mounted with token:", token ? 'Present' : 'Missing');
+    if (token) {
+      try {
+        // Decode JWT token to see user info (without verification)
+        const tokenParts = token.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          console.log('🔍 Token payload:', payload);
+        }
+      } catch (e) {
+        console.log('🔍 Could not decode token:', e);
+      }
+    }
+  }, [token]);
 
+  // Debug component unmount
+  useEffect(() => {
+    return () => {
+      console.log("🔍 CreateGroup component is unmounting");
+    };
+  }, []);
   useEffect(() => {
     fetchUsers();
   }, []);
-  const fetchUsers = async () => {
+
+  // Add error handling for any useEffect errors
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error("🔍 Window error in CreateGroup:", event.error);
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error("🔍 Unhandled promise rejection in CreateGroup:", event.reason);
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);const fetchUsers = async () => {
     try {
       console.log('🔍 Fetching users...');
       const res = await fetch("http://localhost:3000/users", {
@@ -35,11 +75,13 @@ export default function CreateGroup({ token, onClose, onGroupCreated }: CreateGr
       console.log('Response status:', res.status, res.statusText);
       
       if (!res.ok) {
+        console.error('❌ Fetch users failed:', res.status, res.statusText);
         throw new Error(`Error ${res.status}: ${res.statusText}`);
       }
       
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
+        console.error('❌ Expected JSON but got:', contentType);
         throw new Error(`Expected JSON but got ${contentType}`);
       }
       
@@ -68,11 +110,15 @@ export default function CreateGroup({ token, onClose, onGroupCreated }: CreateGr
     }
     setSelectedUsers(newSelected);
   };
-
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
+
+    console.log("🔍 Starting group creation process...");
+    console.log("Group name:", groupName);
+    console.log("Selected users:", Array.from(selectedUsers));
+    console.log("Total users available:", users.length);
 
     if (!groupName.trim()) {
       setError("Group name is required");
@@ -84,12 +130,18 @@ export default function CreateGroup({ token, onClose, onGroupCreated }: CreateGr
       setError("Please select at least one member");
       setLoading(false);
       return;
-    }    try {
+    }
+
+    try {
       // Get phone numbers of selected users
       const selectedUsersList = users.filter(user => selectedUsers.has(user.id));
+      console.log("Selected users list:", selectedUsersList);
+      
       const memberPhones = selectedUsersList
         .map(user => user.ph_number)
         .filter(phone => phone && phone.trim() !== ''); // Filter out null/empty phone numbers
+
+      console.log("Member phones:", memberPhones);
 
       if (memberPhones.length === 0) {
         setError("Selected users must have valid phone numbers");
@@ -97,6 +149,7 @@ export default function CreateGroup({ token, onClose, onGroupCreated }: CreateGr
         return;
       }
 
+      console.log("🚀 Making API request to create group...");
       const res = await fetch("http://localhost:3000/groups", {
         method: "POST",
         headers: {
@@ -106,29 +159,36 @@ export default function CreateGroup({ token, onClose, onGroupCreated }: CreateGr
         body: JSON.stringify({
           name: groupName.trim(),
           memberPhones: memberPhones,
-        }),
-      });
+        }),      });
+
+      console.log("📡 API Response status:", res.status, res.statusText);
 
       if (!res.ok) {
         const contentType = res.headers.get('content-type');
+        console.log("❌ Request failed. Content-Type:", contentType);
+        
         if (contentType && contentType.includes('application/json')) {
           const errorData = await res.json();
+          console.log("Error data:", errorData);
           throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
         } else {
+          const textResponse = await res.text();
+          console.log("Non-JSON error response:", textResponse);
           throw new Error(`Error ${res.status}: ${res.statusText}`);
         }
       }
 
       const data = await res.json();
+      console.log("✅ Group created successfully:", data);
       onGroupCreated();
       onClose();
     } catch (err: any) {
-      console.error("Error creating group:", err);
+      console.error("❌ Error creating group:", err);
       setError(err.message || "Failed to create group");
     } finally {
       setLoading(false);
     }
-  };  const filteredUsers = users.filter(user => {
+  };const filteredUsers = users.filter(user => {
     // If no search term, show all users
     if (!searchTerm || searchTerm.trim() === '') {
       return true;

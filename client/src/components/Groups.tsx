@@ -22,9 +22,26 @@ export default function Groups({ token, onClose }: GroupsProps) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  // Wrap setShowCreateGroup to add debugging
+  const debugSetShowCreateGroup = (value: boolean) => {
+    console.log(`🔍 setShowCreateGroup called with: ${value}`);
+    console.trace("Called from:");
+    setShowCreateGroup(value);
+  };
   useEffect(() => {
     fetchGroups();
   }, []);
+  // Debug when showCreateGroup changes
+  useEffect(() => {
+    console.log("🔍 showCreateGroup state changed:", showCreateGroup);
+    if (showCreateGroup) {
+      console.log("✅ Create Group modal should be opening...");
+    } else {
+      console.log("❌ Create Group modal is closed/closing...");
+      // Log the stack trace to see what caused it to close
+      console.trace("Stack trace for showCreateGroup = false");
+    }
+  }, [showCreateGroup]);
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -55,9 +72,10 @@ export default function Groups({ token, onClose }: GroupsProps) {
       setLoading(false);
     }
   };
-
   const handleGroupCreated = () => {
+    console.log("🔍 handleGroupCreated called");
     fetchGroups();
+    debugSetShowCreateGroup(false);
   };
   const handleOpenChat = (group: Group) => {
     // Navigate to dedicated group page with all functionality (chat, balances, settlement)
@@ -83,9 +101,11 @@ export default function Groups({ token, onClose }: GroupsProps) {
           <div className="flex justify-between items-center p-6 border-b border-gray-200">
             <h2 className="text-2xl font-bold">My Groups</h2>
             <div className="flex space-x-2">
-              {" "}
-              <button
-                onClick={() => setShowCreateGroup(true)}
+              {" "}              <button
+                onClick={() => {
+                  console.log("🔍 Create Group button clicked!");
+                  debugSetShowCreateGroup(true);
+                }}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
               >
                 <span>Create Group</span>
@@ -129,8 +149,10 @@ export default function Groups({ token, onClose }: GroupsProps) {
                 <p className="text-gray-500 mb-4">
                   Create your first group to start chatting with friends!
                 </p>
-                <button
-                  onClick={() => setShowCreateGroup(true)}
+                <button                  onClick={() => {
+                    console.log("🔍 Create Group button clicked (bottom)!");
+                    debugSetShowCreateGroup(true);
+                  }}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md"
                 >
                   Create Your First Group
@@ -177,11 +199,12 @@ export default function Groups({ token, onClose }: GroupsProps) {
           </div>
         </div>
       </div>{" "}
-      {/* Create Group Modal */}
-      {showCreateGroup && (
-        <CreateGroup
+      {/* Create Group Modal */}      {showCreateGroup && (        <CreateGroup
           token={token}
-          onClose={() => setShowCreateGroup(false)}
+          onClose={() => {
+            console.log("🔍 CreateGroup onClose called");
+            debugSetShowCreateGroup(false);
+          }}
           onGroupCreated={handleGroupCreated}
         />
       )}

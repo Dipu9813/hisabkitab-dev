@@ -4,6 +4,8 @@ import BusinessList from "./BusinessList";
 import CreateBusiness from "./CreateBusiness";
 import JoinBusiness from "./JoinBusiness";
 import CustomerLoansManager from "./CustomerLoansManager";
+import BusinessMemberManager from "./BusinessMemberManager";
+import BusinessLoanVerificationManager from "./BusinessLoanVerificationManager";
 
 interface Business {
   id: string;
@@ -23,16 +25,22 @@ export default function BusinessDashboard({ token }: BusinessDashboardProps) {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(
     null
-  );
-  const [activeTab, setActiveTab] = useState<"dashboard" | "create" | "join">(
+  );  const [activeTab, setActiveTab] = useState<"dashboard" | "members" | "verification" | "create" | "join">(
     "dashboard"
-  );
-  const [loading, setLoading] = useState(true);
+  );const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
+  const [currentUserId, setCurrentUserId] = useState<string>("");
   useEffect(() => {
     fetchBusinesses();
-  }, []);
+    
+    // Decode user ID from token
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      setCurrentUserId(payload.sub || "");
+    } catch (error) {
+      console.error("Error decoding token:", error);
+    }
+  }, [token]);
 
   const fetchBusinesses = async () => {
     try {
@@ -129,8 +137,7 @@ export default function BusinessDashboard({ token }: BusinessDashboardProps) {
       {/* Navigation Tabs */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8">
-            <button
+          <nav className="flex space-x-8">            <button
               onClick={() => setActiveTab("dashboard")}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === "dashboard"
@@ -139,6 +146,25 @@ export default function BusinessDashboard({ token }: BusinessDashboardProps) {
               }`}
             >
               Dashboard
+            </button>            <button
+              onClick={() => setActiveTab("members")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "members"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Members
+            </button>
+            <button
+              onClick={() => setActiveTab("verification")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "verification"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Loan Verification
             </button>
             <button
               onClick={() => setActiveTab("create")}
@@ -246,15 +272,47 @@ export default function BusinessDashboard({ token }: BusinessDashboardProps) {
               onCancel={() => setActiveTab("dashboard")}
             />
           </div>
-        )}
-
-        {activeTab === "join" && (
+        )}        {activeTab === "join" && (
           <div className="max-w-md mx-auto">
             <JoinBusiness
               token={token}
               onBusinessJoined={handleBusinessJoined}
               onCancel={() => setActiveTab("dashboard")}
             />
+          </div>
+        )}
+
+        {activeTab === "members" && (
+          <div className="max-w-4xl mx-auto">
+            {selectedBusiness ? (              <BusinessMemberManager
+                businessId={selectedBusiness.id}
+                token={token}
+                currentUserId={currentUserId}
+                onClose={() => setActiveTab("dashboard")}
+              />
+            ) : (
+              <div className="bg-white rounded-lg shadow p-8 text-center">
+                <div className="text-gray-500">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No Business Selected
+                  </h3>
+                  <p className="text-gray-500 mb-4">
+                    Please select a business to manage its members.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab("dashboard")}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                  >
+                    Go to Dashboard
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>        )}
+
+        {activeTab === "verification" && (
+          <div className="max-w-6xl mx-auto">
+            <BusinessLoanVerificationManager token={token} />
           </div>
         )}
       </div>
