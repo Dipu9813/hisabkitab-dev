@@ -71,11 +71,31 @@ export default function Groups({ token, onClose }: GroupsProps) {
     } finally {
       setLoading(false);
     }
-  };
-  const handleGroupCreated = () => {
-    console.log("🔍 handleGroupCreated called");
-    fetchGroups();
-    debugSetShowCreateGroup(false);
+  };  const handleGroupCreated = (groupData?: { group: { id: string; name: string } }) => {
+    console.log("🔍 handleGroupCreated called with data:", groupData);
+    
+    // If group data is provided, navigate to the group immediately
+    if (groupData?.group) {
+      console.log("🚀 Navigating to newly created group:", groupData.group);
+      try {
+        router.push(
+          `/group?groupId=${groupData.group.id}&groupName=${encodeURIComponent(groupData.group.name)}`
+        );
+        // Close the modal and parent groups modal
+        debugSetShowCreateGroup(false);
+        onClose(); // Close the entire Groups modal since we're navigating away
+      } catch (navError) {
+        console.error("❌ Navigation error:", navError);
+        // Fallback: refresh groups and stay on current page
+        fetchGroups();
+        debugSetShowCreateGroup(false);
+      }
+    } else {
+      // Fallback: just refresh groups and close modal
+      console.log("⚠️ No group data provided, falling back to refresh");
+      fetchGroups();
+      debugSetShowCreateGroup(false);
+    }
   };
   const handleOpenChat = (group: Group) => {
     // Navigate to dedicated group page with all functionality (chat, balances, settlement)

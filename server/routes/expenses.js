@@ -37,89 +37,98 @@ async function updateSettlements(groupId, expenseId, payerId, participants) {
       return;
     }
 
-    // Create settlement updates
-    const settlementMap = {}; // Initialize existing settlements
+    // Create settlement map from existing settlements
+    const settlementMap = {};
     existingSettlements?.forEach((settlement) => {
       const key = `${settlement.debtor_id}|${settlement.creditor_id}`;
       settlementMap[key] = settlement.amount;
-    }); // Process each participant
+    });
+
+    // Process each participant (only non-payers owe money)
     participants.forEach((participant) => {
       console.log(
         "🔄 Processing participant:",
         participant.participant_id,
+        "share:",
+        participant.share_amount,
         "vs payer:",
         payerId
       );
+      
       if (participant.participant_id !== payerId) {
         // This participant owes money to the payer
-        const key = `${participant.participant_id}|${payerId}`;
-        const reverseKey = `${payerId}|${participant.participant_id}`;
+        const debtKey = `${participant.participant_id}|${payerId}`;
+        const creditKey = `${payerId}|${participant.participant_id}`;
 
-        console.log("🔄 Checking keys:", key, "and reverse:", reverseKey);
+        console.log("🔄 Debt key:", debtKey, "Credit key:", creditKey);
 
-        if (settlementMap[reverseKey]) {
-          // Payer owes this participant, reduce that amount
-          settlementMap[reverseKey] =
-            (settlementMap[reverseKey] || 0) - participant.share_amount;
-          if (settlementMap[reverseKey] <= 0) {
-            if (settlementMap[reverseKey] < 0) {
-              settlementMap[key] = Math.abs(settlementMap[reverseKey]);
+        // Check if there's an existing opposite relationship
+        if (settlementMap[creditKey]) {
+          // Payer already owes this participant - net it out
+          const existingCredit = settlementMap[creditKey];
+          const newDebt = participant.share_amount;
+          
+          console.log("🔄 Netting: Existing credit", existingCredit, "vs new debt", newDebt);
+          
+          if (existingCredit >= newDebt) {
+            // Credit is larger, reduce it
+            settlementMap[creditKey] = existingCredit - newDebt;
+            if (settlementMap[creditKey] === 0) {
+              delete settlementMap[creditKey];
             }
-            delete settlementMap[reverseKey];
+          } else {
+            // Debt is larger, flip the relationship
+            delete settlementMap[creditKey];
+            settlementMap[debtKey] = newDebt - existingCredit;
           }
         } else {
-          // Increase amount this participant owes payer
-          settlementMap[key] =
-            (settlementMap[key] || 0) + participant.share_amount;
-          console.log(
-            "🔄 Updated settlement:",
-            key,
-            "to amount:",
-            settlementMap[key]
-          );
+          // No opposite relationship, add/increase this debt
+          settlementMap[debtKey] = (settlementMap[debtKey] || 0) + participant.share_amount;
         }
+        
+        console.log("🔄 Updated settlement for", debtKey, ":", settlementMap[debtKey]);
       }
     });
 
-    console.log("🔄 Final settlement map:", settlementMap); // Update settlements in database
-    if (Object.keys(settlementMap).length === 0) {
-      console.log("⚠️ No settlements to update");
+    console.log("🔄 Final settlement map:", settlementMap);
+
+    // Delete all existing settlements for this group and recreate
+    const { error: deleteError } = await supabaseAdmin
+      .from("expense_settlements")
+      .delete()
+      .eq("group_id", groupId);
+
+    if (deleteError) {
+      console.error("❌ Error deleting old settlements:", deleteError);
       return;
     }
-    const upsertPromises = Object.entries(settlementMap).map(
-      ([key, amount]) => {
+
+    // Insert new settlements
+    if (Object.keys(settlementMap).length > 0) {
+      const settlementRecords = Object.entries(settlementMap).map(([key, amount]) => {
         const [debtorId, creditorId] = key.split("|");
+        return {
+          group_id: groupId,
+          debtor_id: debtorId,
+          creditor_id: creditorId,
+          amount: amount,
+          updated_at: new Date().toISOString(),
+        };
+      });
 
-        console.log(
-          "🔄 Upserting settlement:",
-          debtorId,
-          "owes",
-          creditorId,
-          "amount:",
-          amount
-        );
+      const { error: insertError } = await supabaseAdmin
+        .from("expense_settlements")
+        .insert(settlementRecords);
 
-        return supabaseAdmin.from("expense_settlements").upsert(
-          {
-            group_id: groupId,
-            debtor_id: debtorId,
-            creditor_id: creditorId,
-            amount: amount,
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: "group_id,debtor_id,creditor_id",
-          }
-        );
+      if (insertError) {
+        console.error("❌ Error inserting settlements:", insertError);
+        return;
       }
-    );
 
-    const results = await Promise.all(upsertPromises);
-    console.log(
-      "🔄 Upsert results:",
-      results.map((r) => ({ error: r.error, data: r.data }))
-    );
-    console.log("✅ Settlements updated successfully");
+      console.log("✅ Settlements updated successfully");
+    } else {
+      console.log("✅ No settlements needed - all balanced");
+    }
   } catch (error) {
     console.error("❌ Error updating settlements:", error);
   }

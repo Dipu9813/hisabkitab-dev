@@ -27,42 +27,7 @@ export default function BusinessLoanVerificationManager({ token }: BusinessLoanV
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [processingLoan, setProcessingLoan] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
-  const testSchema = async () => {
-    try {
-      console.log("🧪 Testing schema...");
-      const res = await fetch("http://localhost:3000/test/business-loans-schema", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      const data = await res.json();
-      console.log("🧪 Schema test result:", data);
-      setDebugInfo(data);    } catch (err: any) {
-      console.error("❌ Schema test failed:", err);
-      setDebugInfo({ error: err.message || "Unknown error" });
-    }
-  };
 
-  const createSampleData = async () => {
-    try {
-      console.log("🧪 Creating sample data...");
-      const res = await fetch("http://localhost:3000/test/create-sample-business-loan", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      const data = await res.json();
-      console.log("🧪 Sample data result:", data);
-      setDebugInfo(data);
-      
-      if (data.loan) {
-        setSuccess("Sample business loan created! Follow the instructions to test the verification workflow.");
-      }
-    } catch (err: any) {
-      console.error("❌ Sample data creation failed:", err);
-      setError(err.message || "Failed to create sample data");
-    }
-  };
   const fetchPendingVerifications = async () => {
     setLoading(true);
     setError("");
@@ -178,19 +143,8 @@ export default function BusinessLoanVerificationManager({ token }: BusinessLoanV
 
   return (
     <div className="max-w-6xl mx-auto mt-8">      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">🏢 Business Loan Verification</h2>        <div className="flex gap-2">
-          <button
-            onClick={createSampleData}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-          >
-            🎯 Create Sample Loan
-          </button>
-          <button
-            onClick={testSchema}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-          >
-            🧪 Test Schema
-          </button>
+        <h2 className="text-2xl font-bold">🏢 Business Loan Verification</h2>
+        <div className="flex gap-2">
           <button
             onClick={fetchPendingVerifications}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
@@ -207,17 +161,7 @@ export default function BusinessLoanVerificationManager({ token }: BusinessLoanV
       )}
         {success && (
         <div className="text-green-600 mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
-          {success}
-        </div>
-      )}
-
-      {debugInfo && (
-        <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h3 className="font-bold text-blue-800 mb-2">🧪 Debug Information:</h3>
-          <pre className="text-xs text-blue-700 overflow-auto">
-            {JSON.stringify(debugInfo, null, 2)}
-          </pre>
-        </div>
+          {success}        </div>
       )}
 
       {pendingLoans.length === 0 ? (

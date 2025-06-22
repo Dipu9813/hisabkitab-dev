@@ -11,7 +11,7 @@ interface User {
 interface CreateGroupProps {
   token: string;
   onClose: () => void;
-  onGroupCreated: () => void;
+  onGroupCreated: (groupData?: { group: { id: string; name: string } }) => void;
 }
 
 export default function CreateGroup({ token, onClose, onGroupCreated }: CreateGroupProps) {
@@ -176,11 +176,11 @@ export default function CreateGroup({ token, onClose, onGroupCreated }: CreateGr
           console.log("Non-JSON error response:", textResponse);
           throw new Error(`Error ${res.status}: ${res.statusText}`);
         }
-      }
-
-      const data = await res.json();
+      }      const data = await res.json();
       console.log("✅ Group created successfully:", data);
-      onGroupCreated();
+      
+      // Call the callback with the group data so parent can navigate
+      onGroupCreated(data);
       onClose();
     } catch (err: any) {
       console.error("❌ Error creating group:", err);
