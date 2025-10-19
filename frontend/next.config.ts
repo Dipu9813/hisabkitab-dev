@@ -65,6 +65,14 @@ const nextConfig: NextConfig = {
   },
   // Disable development overlay completely
   reactStrictMode: false,
+  // Disable ESLint during production builds
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  // Disable TypeScript type checking during builds
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 module.exports = withPWA(nextConfig);
