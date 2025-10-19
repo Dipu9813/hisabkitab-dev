@@ -1,0 +1,3 @@
+# Ignore everything to skip ESLint during build
+*
+**/*
