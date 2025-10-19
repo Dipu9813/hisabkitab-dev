@@ -234,7 +234,7 @@ export default function App() {
       const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token) return;
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(await res.text());
@@ -316,7 +316,7 @@ export default function App() {
         return;
       }
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -467,7 +467,7 @@ export default function App() {
       const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token) throw new Error("No token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -955,5 +955,6 @@ export default function App() {
     </div>
   );
 }
+
 
 

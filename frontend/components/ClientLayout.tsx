@@ -39,7 +39,7 @@ export default function ClientLayout({ children, modalOpen }: { children: React.
           return;
         }
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -212,5 +212,6 @@ export default function ClientLayout({ children, modalOpen }: { children: React.
     </>
   );
 }
+
 
 

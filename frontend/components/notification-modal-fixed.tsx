@@ -27,7 +27,7 @@ export default function NotificationModal({ onClose, token, onUnreadCountChange 
     const checkNotifications = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -218,5 +218,6 @@ export default function NotificationModal({ onClose, token, onUnreadCountChange 
     </div>
   )
 }
+
 
 

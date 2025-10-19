@@ -18,7 +18,7 @@ export default function ProfileForm({ token }: { token: string }) {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         
@@ -59,7 +59,7 @@ export default function ProfileForm({ token }: { token: string }) {
         // Upload profile picture to backend
         const formData = new FormData();
         formData.append("profile_pic", profilePic);
-        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile/upload", {
+        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile/upload`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -94,7 +94,7 @@ export default function ProfileForm({ token }: { token: string }) {
         // Upload QR code picture to backend
         const formData = new FormData();
         formData.append("qr_code_pic", qrCodePic);
-        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile/qr-upload", {
+        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile/qr-upload`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -124,7 +124,7 @@ export default function ProfileForm({ token }: { token: string }) {
       }
     }    
     // Send profile data
-    try {      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile", {
+    try {      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -292,5 +292,6 @@ export default function ProfileForm({ token }: { token: string }) {
     </form>
   );
 }
+
 
 

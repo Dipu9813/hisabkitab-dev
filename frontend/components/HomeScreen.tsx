@@ -52,7 +52,7 @@ export default function HomeScreen({
         try {
           currentUserId = jwtDecode<{ sub: string }>(token).sub;
         } catch {}
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
@@ -98,7 +98,7 @@ export default function HomeScreen({
           currentUserId = jwtDecode<{ sub: string }>(token).sub;
         } catch {}
         // Ongoing: confirmed or payment_requested
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
@@ -115,7 +115,7 @@ export default function HomeScreen({
         );
         setOngoingRecords(ongoing);
         // Past: from loan_history
-        const resHistory = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loan-history", {
+        const resHistory = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loan-history`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!resHistory.ok)
@@ -1112,5 +1112,6 @@ export default function HomeScreen({
     </>
   );
 }
+
 
 

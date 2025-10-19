@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Forward the request to your backend server
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/push/subscribe", {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/push/subscribe`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -34,5 +34,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
 
 
