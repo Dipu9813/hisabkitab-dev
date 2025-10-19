@@ -192,3 +192,4 @@ export default function BusinessQRModal({ onClose, businessName, businessCode }:
     </div>
   )
 }
+

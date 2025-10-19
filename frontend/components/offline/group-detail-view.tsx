@@ -275,3 +275,4 @@ ${amount.toFixed(2)}`;
     </div>
   );
 }
+

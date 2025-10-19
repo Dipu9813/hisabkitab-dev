@@ -47,7 +47,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
         const token =
           typeof window !== "undefined" ? localStorage.getItem("token") : null;
         if (!token) return;
-        const res = await fetch("http://localhost:3000/profile", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
@@ -255,3 +255,5 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
     </div>
   );
 }
+
+

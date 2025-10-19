@@ -61,3 +61,4 @@ export const initialUserGroups = [
 ]
 
 export const initialBusinessSections = []
+

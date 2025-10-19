@@ -45,7 +45,7 @@ export default function SettlementPhase({
   const fetchSettlements = async () => {
     try {
       const response = await fetch(
-        `http://localhost:3000/groups/${groupId}/optimized-settlements`,
+        `${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/optimized-settlements`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -68,7 +68,7 @@ export default function SettlementPhase({
   const fetchMyBalance = async () => {
     try {
       const response = await fetch(
-        `http://localhost:3000/groups/${groupId}/my-balance`,
+        `${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/my-balance`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -427,3 +427,4 @@ export default function SettlementPhase({
     </div>
   );
 }
+

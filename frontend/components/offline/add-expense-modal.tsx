@@ -323,3 +323,4 @@ export default function AddExpenseModal({ group, onClose, onAddExpense }: AddExp
     </div>
   );
 }
+

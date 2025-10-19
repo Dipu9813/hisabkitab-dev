@@ -210,3 +210,4 @@ export default function TransactionDetailModal({ transaction, onClose }: Transac
     </div>
   )
 }
+

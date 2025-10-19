@@ -283,3 +283,4 @@ export default function QRScanner({ onBack, onScan }: QRScannerProps) {
     </div>
   )
 }
+

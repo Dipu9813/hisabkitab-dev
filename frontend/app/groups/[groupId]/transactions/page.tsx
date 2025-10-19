@@ -38,7 +38,7 @@ const GroupTransactionsPage = ({ params }: { params: Promise<{ groupId: string }
   const fetchGroupDetails = async (token: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:3000/groups/${groupId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to fetch group details');

@@ -425,3 +425,4 @@ export default function OfflineApp() {
     </div>
   );
 }
+

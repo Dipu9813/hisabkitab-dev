@@ -13,7 +13,7 @@ export default function TransactionDetail({ transactionId, onClose }: { transact
       setError("");
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-        const res = await fetch(`http://localhost:3000/transactions/${transactionId}`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/transactions/${transactionId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) throw new Error("Failed to fetch transaction");

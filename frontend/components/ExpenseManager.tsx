@@ -47,7 +47,7 @@ export default function ExpenseManager({
     try {
       console.log("🔍 Fetching group members for group:", groupId);
 
-      const response = await fetch(`http://localhost:3000/groups/${groupId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -93,7 +93,7 @@ export default function ExpenseManager({
 
       if (err.name === "TypeError" && err.message.includes("fetch")) {
         setError(
-          "Cannot connect to server. Please ensure the backend is running on http://localhost:3000"
+          `Cannot connect to server. Please ensure the backend is running on ${process.env.NEXT_PUBLIC_API_URL}`
         );
       } else {
         setError(
@@ -148,7 +148,7 @@ export default function ExpenseManager({
             <h4 className="font-medium text-blue-800 mb-2">🔧 Server Check</h4>
             <p className="text-sm text-blue-700">
               Make sure your backend server is running on
-              <code className="bg-blue-100 px-1 rounded ml-1">http://localhost:3000</code>
+              <code className="bg-blue-100 px-1 rounded ml-1">{process.env.NEXT_PUBLIC_API_URL}</code>
             </p>
           </div>
         )}
@@ -160,7 +160,7 @@ export default function ExpenseManager({
             Try Again
           </button>
           <button
-            onClick={() => window.open('http://localhost:3000/groups', '_blank')}
+            onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL}/groups`, '_blank')}
             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
           >
             Test Server
@@ -252,3 +252,5 @@ export default function ExpenseManager({
     </div>
   );
 }
+
+

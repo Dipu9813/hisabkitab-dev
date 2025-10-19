@@ -42,3 +42,4 @@ export default function OfflineDetector({ children }: OfflineDetectorProps) {
     </>
   );
 }
+

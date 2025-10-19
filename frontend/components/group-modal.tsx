@@ -56,7 +56,7 @@ export default function GroupModal({ onClose, onJoinGroup, onCreateGroup }: Grou
         // Get current user info from token (assume JWT with id, or fetch from /profile)
         let userId = null;
         try {
-          const profileRes = await fetch("http://localhost:3000/profile", {
+          const profileRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile", {
             headers: { Authorization: `Bearer ${token}` }
           })
           if (profileRes.ok) {
@@ -65,7 +65,7 @@ export default function GroupModal({ onClose, onJoinGroup, onCreateGroup }: Grou
             setCurrentUser(profileData.data)
           }
         } catch {}
-        const res = await fetch("http://localhost:3000/users", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users", {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (!res.ok) throw new Error(await res.text())
@@ -74,7 +74,7 @@ export default function GroupModal({ onClose, onJoinGroup, onCreateGroup }: Grou
         // Fetch profile_pic for each user by id
         const usersWithPics = await Promise.all(users.map(async (user: any) => {
           try {
-            const picRes = await fetch(`http://localhost:3000/users/id/${user.id}`, {
+            const picRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/id/${user.id}`, {
               headers: { Authorization: `Bearer ${token}` }
             })
             if (!picRes.ok) return user
@@ -412,3 +412,5 @@ export default function GroupModal({ onClose, onJoinGroup, onCreateGroup }: Grou
     </div>
   )
 }
+
+

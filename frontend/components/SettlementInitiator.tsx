@@ -38,7 +38,7 @@ export default function SettlementInitiator({
 
     try {
       const response = await fetch(
-        `http://localhost:3000/groups/${groupId}/settle`,
+        `${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/settle`,
         {
           method: "POST",
           headers: {
@@ -267,3 +267,4 @@ export default function SettlementInitiator({
     </div>
   );
 }
+

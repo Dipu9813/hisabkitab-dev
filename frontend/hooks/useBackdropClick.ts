@@ -10,3 +10,4 @@ export const useBackdropClick = (onClose: () => void) => {
 
   return handleBackdropClick;
 };
+

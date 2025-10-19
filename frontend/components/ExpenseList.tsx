@@ -71,7 +71,7 @@ export default function ExpenseList({
 
     try {
       const response = await fetch(
-        `http://localhost:3000/groups/${groupId}/expenses`,
+        `${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/expenses`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -101,7 +101,7 @@ export default function ExpenseList({
 
     try {
       const response = await fetch(
-        `http://localhost:3000/expenses/${expenseId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/expenses/${expenseId}`,
         {
           method: "DELETE",
           headers: {
@@ -371,3 +371,4 @@ export default function ExpenseList({
     </div>
   );
 }
+

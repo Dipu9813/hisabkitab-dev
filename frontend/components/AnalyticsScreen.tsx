@@ -40,13 +40,13 @@ export default function AnalyticsScreen({ sectionInfo, currentSection }: any) {
           setLoanHistory([])
         } else {
           // Fetch personal loans for personal mode
-          const res = await fetch("http://localhost:3000/loans", {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans", {
             headers: { Authorization: `Bearer ${token}` },
           })
           if (!res.ok) throw new Error(await res.text())
           const { data } = await res.json()
           setLoans(data || [])
-          const resHistory = await fetch("http://localhost:3000/loan-history", {
+          const resHistory = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loan-history", {
             headers: { Authorization: `Bearer ${token}` },
           })
           if (!resHistory.ok) throw new Error(await resHistory.text())
@@ -418,3 +418,5 @@ export default function AnalyticsScreen({ sectionInfo, currentSection }: any) {
     </div>
   )
 }
+
+

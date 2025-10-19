@@ -241,3 +241,4 @@ export default function JoinBusinessModal({ onClose, onBusinessJoined }: JoinBus
     </div>
   )
 }
+

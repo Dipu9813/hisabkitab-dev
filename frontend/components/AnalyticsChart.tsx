@@ -116,3 +116,4 @@ export default function AnalyticsChart({ chartData, labels, activeTab }: any) {
     </div>
   );
 }
+

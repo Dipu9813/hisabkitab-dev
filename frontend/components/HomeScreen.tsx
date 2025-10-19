@@ -52,7 +52,7 @@ export default function HomeScreen({
         try {
           currentUserId = jwtDecode<{ sub: string }>(token).sub;
         } catch {}
-        const res = await fetch("http://localhost:3000/loans", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
@@ -98,7 +98,7 @@ export default function HomeScreen({
           currentUserId = jwtDecode<{ sub: string }>(token).sub;
         } catch {}
         // Ongoing: confirmed or payment_requested
-        const res = await fetch("http://localhost:3000/loans", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
@@ -115,7 +115,7 @@ export default function HomeScreen({
         );
         setOngoingRecords(ongoing);
         // Past: from loan_history
-        const resHistory = await fetch("http://localhost:3000/loan-history", {
+        const resHistory = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loan-history", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!resHistory.ok)
@@ -601,7 +601,7 @@ export default function HomeScreen({
                               onClick={async () => {
                                 const token = localStorage.getItem("token");
                                 await fetch(
-                                  `http://localhost:3000/loans/${transaction.id}/confirm-payment`,
+                                  `${process.env.NEXT_PUBLIC_API_URL}/loans/${transaction.id}/confirm-payment`,
                                   {
                                     method: "POST",
                                     headers: {
@@ -625,7 +625,7 @@ export default function HomeScreen({
                               onClick={async () => {
                                 const token = localStorage.getItem("token");
                                 await fetch(
-                                  `http://localhost:3000/loans/${transaction.id}/decline-payment`,
+                                  `${process.env.NEXT_PUBLIC_API_URL}/loans/${transaction.id}/decline-payment`,
                                   {
                                     method: "POST",
                                     headers: {
@@ -689,7 +689,7 @@ export default function HomeScreen({
                             onClick={async () => {
                               const token = localStorage.getItem("token");
                               await fetch(
-                                `http://localhost:3000/loans/${transaction.id}/confirm`,
+                                `${process.env.NEXT_PUBLIC_API_URL}/loans/${transaction.id}/confirm`,
                                 {
                                   method: "POST",
                                   headers: { Authorization: `Bearer ${token}` },
@@ -851,7 +851,7 @@ export default function HomeScreen({
 
                         const token = localStorage.getItem("token");
                         const res = await fetch(
-                          `http://localhost:3000/loans/${selectedOngoing.id}/payment-request`,
+                          `${process.env.NEXT_PUBLIC_API_URL}/loans/${selectedOngoing.id}/payment-request`,
                           {
                             method: "POST",
                             headers: { Authorization: `Bearer ${token}` },
@@ -894,7 +894,7 @@ export default function HomeScreen({
                       try {
                         const token = localStorage.getItem("token");
                         const res = await fetch(
-                          `http://localhost:3000/loans/${selectedOngoing.id}/send-reminder`,
+                          `${process.env.NEXT_PUBLIC_API_URL}/loans/${selectedOngoing.id}/send-reminder`,
                           {
                             method: "POST",
                             headers: { Authorization: `Bearer ${token}` },
@@ -1038,7 +1038,7 @@ export default function HomeScreen({
 
               const token = localStorage.getItem("token");
               const res = await fetch(
-                `http://localhost:3000/loans/${selectedOngoing.id}/payment-request`,
+                `${process.env.NEXT_PUBLIC_API_URL}/loans/${selectedOngoing.id}/payment-request`,
                 {
                   method: "POST",
                   headers: { Authorization: `Bearer ${token}` },
@@ -1073,7 +1073,7 @@ export default function HomeScreen({
             try {
               const token = localStorage.getItem("token");
               const res = await fetch(
-                `http://localhost:3000/loans/${selectedOngoing.id}/send-reminder`,
+                `${process.env.NEXT_PUBLIC_API_URL}/loans/${selectedOngoing.id}/send-reminder`,
                 {
                   method: "POST",
                   headers: { Authorization: `Bearer ${token}` },
@@ -1112,3 +1112,5 @@ export default function HomeScreen({
     </>
   );
 }
+
+

@@ -34,7 +34,7 @@ export default function ContactSearch({ onBack, onSelect }: ContactSearchProps) 
         // Get current user info from token
         let userId = null;
         try {
-          const profileRes = await fetch("http://localhost:3000/profile", {
+          const profileRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile`, {
             headers: { Authorization: `Bearer ${token}` }
           })
           if (profileRes.ok) {
@@ -45,7 +45,7 @@ export default function ContactSearch({ onBack, onSelect }: ContactSearchProps) 
         } catch {}
         
         // Fetch all users
-        const res = await fetch("http://localhost:3000/users", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (!res.ok) throw new Error(await res.text())
@@ -69,10 +69,10 @@ export default function ContactSearch({ onBack, onSelect }: ContactSearchProps) 
               avatarUrl = user.profile_pic;
             } else if (user.profile_pic.startsWith('/')) {
               // If it starts with /, construct full URL
-              avatarUrl = `http://localhost:3000${user.profile_pic}`;
+              avatarUrl = `${process.env.NEXT_PUBLIC_API_URL}${user.profile_pic}`;
             } else {
               // If it's a relative path without /, add both / and the server URL
-              avatarUrl = `http://localhost:3000/${user.profile_pic}`;
+              avatarUrl = `${process.env.NEXT_PUBLIC_API_URL}/${user.profile_pic}`;
             }
           }
           console.log(`Final avatar URL for ${user.full_name}:`, avatarUrl);
@@ -289,3 +289,5 @@ export default function ContactSearch({ onBack, onSelect }: ContactSearchProps) 
     </div>
   )
 }
+
+

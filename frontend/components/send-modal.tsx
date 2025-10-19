@@ -60,7 +60,7 @@ export default function SendModal({ onClose }: SendModalProps) {
     setError("");
     setSuccess("");
     try {
-      const res = await fetch("http://localhost:3000/lend", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lend`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -113,7 +113,7 @@ export default function SendModal({ onClose }: SendModalProps) {
     setError("");
     setUserDetails(null);
     try {
-      const res = await fetch(`http://localhost:3000/users/search/${scannedNumber}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/search/${scannedNumber}`, {
         headers: {
           "Authorization": `Bearer ${token}`,
         },
@@ -206,7 +206,7 @@ export default function SendModal({ onClose }: SendModalProps) {
           }
           setIsSearching(true);
           try {
-            const res = await fetch(`http://localhost:3000/users/search/${phone}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/search/${phone}`, {
               headers: {
                 "Authorization": `Bearer ${token}`,
               },
@@ -463,7 +463,7 @@ export default function SendModal({ onClose }: SendModalProps) {
     let cancelled = false;
     async function fetchRecipientName() {
       try {
-        const res = await fetch(`http://localhost:3000/users/search/${encodeURIComponent(mobileNumber)}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/search/${encodeURIComponent(mobileNumber)}`);
         if (res.ok) {
           const data = await res.json();
           if (data && data.full_name && !cancelled) {
@@ -494,3 +494,4 @@ export default function SendModal({ onClose }: SendModalProps) {
     </div>
   )
 }
+

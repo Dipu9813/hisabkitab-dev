@@ -225,3 +225,4 @@ export default function QRUploadScreen({ onComplete, onBack }: QRUploadScreenPro
     </div>
   )
 }
+

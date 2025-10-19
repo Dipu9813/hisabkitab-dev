@@ -31,7 +31,7 @@ const GroupAnalyticsModal: React.FC<GroupAnalyticsModalProps> = ({ groupId, onCl
   const fetchGroupDetails = async (token: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:3000/groups/${groupId}/analytics`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/analytics`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to fetch group analytics');
@@ -105,3 +105,4 @@ const GroupAnalyticsModal: React.FC<GroupAnalyticsModalProps> = ({ groupId, onCl
 };
 
 export default GroupAnalyticsModal;
+

@@ -48,7 +48,7 @@ export default function GroupDetailsModal({ group, onClose }: GroupDetailsModalP
       setError("");
       try {
         const response = await fetch(
-          `http://localhost:3000/groups/${group.id}/expenses`,
+          `${process.env.NEXT_PUBLIC_API_URL}/groups/${group.id}/expenses`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -227,3 +227,4 @@ export default function GroupDetailsModal({ group, onClose }: GroupDetailsModalP
     </div>
   )
 }
+

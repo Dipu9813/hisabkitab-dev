@@ -183,3 +183,4 @@ export default function CreateGroupModal({ onClose, onCreateGroup }: CreateGroup
     </div>
   );
 }
+

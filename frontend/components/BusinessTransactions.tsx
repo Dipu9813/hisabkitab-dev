@@ -327,3 +327,4 @@ export default function BusinessTransactions({ businessId, businessName, isOwner
     </div>
   )
 }
+

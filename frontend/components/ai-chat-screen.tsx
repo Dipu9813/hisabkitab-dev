@@ -69,7 +69,7 @@ export default function AIChatScreen() {
   // Fetch user loan history
   const fetchLoanHistory = async (token: string) => {
     try {
-      const res = await fetch("http://localhost:3000/loan-history", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loan-history", {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok) return null
@@ -83,7 +83,7 @@ export default function AIChatScreen() {
   // Fetch user present loans
   const fetchLoans = async (token: string) => {
     try {
-      const res = await fetch("http://localhost:3000/loans", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans", {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok) return null
@@ -331,3 +331,5 @@ export default function AIChatScreen() {
     </div>
   )
 }
+
+

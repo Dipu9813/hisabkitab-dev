@@ -31,7 +31,7 @@ export default function SettlementModal({
         // First check current group phase
         setLoadingStep("Checking group status...");
         const groupRes = await fetch(
-          `http://localhost:3000/groups/${groupId}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -45,7 +45,7 @@ export default function SettlementModal({
           setLoadingStep("Initiating settlement...");
           setSuccess("Initiating settlement...");
           const settleRes = await fetch(
-            `http://localhost:3000/groups/${groupId}/settle`,
+            `${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/settle`,
             {
               method: "POST",
               headers: { Authorization: `Bearer ${token}` },
@@ -63,7 +63,7 @@ export default function SettlementModal({
         setLoadingStep("Generating optimized splits...");
         setSuccess("Generating optimized splits...");
         const res = await fetch(
-          `http://localhost:3000/groups/${groupId}/optimized-settlements`,
+          `${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/optimized-settlements`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -207,3 +207,4 @@ export default function SettlementModal({
     </div>
   );
 }
+

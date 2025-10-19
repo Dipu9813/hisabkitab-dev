@@ -120,3 +120,4 @@ export class NetworkMonitor {
     this.listeners.clear();
   }
 }
+

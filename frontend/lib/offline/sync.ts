@@ -183,3 +183,4 @@ export function getSyncStatus() {
     pendingItems: sync.getSyncQueue()
   };
 }
+

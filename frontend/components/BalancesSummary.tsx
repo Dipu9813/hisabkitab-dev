@@ -52,7 +52,7 @@ export default function BalancesSummary({
 
     try {
       const response = await fetch(
-        `http://localhost:3000/groups/${groupId}/balances`,
+        `${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/balances`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -336,3 +336,4 @@ export default function BalancesSummary({
     </div>
   );
 }
+

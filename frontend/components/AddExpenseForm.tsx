@@ -141,7 +141,7 @@ export default function AddExpenseForm({
     setError("");
     
     try {
-      const response = await fetch(`http://localhost:3000/groups/${groupId}/expenses`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/expenses`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -432,3 +432,4 @@ export default function AddExpenseForm({
     </div>
   );
 }
+

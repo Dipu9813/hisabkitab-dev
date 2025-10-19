@@ -16,7 +16,7 @@ export default function SignInPage() {
         setError("");
 
         try {
-            const res = await fetch("http://localhost:3000/login", {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
@@ -61,7 +61,7 @@ export default function SignInPage() {
         let avatar = "/placeholder.svg";
         let phone = "";
         try {
-            const res = await fetch("http://localhost:3000/profile", {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile", {
                 headers: { "Authorization": `Bearer ${token}` }
             });
             if (res.ok) {
@@ -184,3 +184,5 @@ export default function SignInPage() {
         </div>
     );
 }
+
+

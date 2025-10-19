@@ -249,3 +249,4 @@ export default function AuthScreen({ onAuthSuccess, onSignupSuccess }: AuthScree
     </div>
   )
 }
+

@@ -80,7 +80,7 @@ export default function GroupChatInterface({
 
     try {
       const res = await fetch(
-        `http://localhost:3000/groups/${groupId}/messages`,
+        `${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/messages`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -128,7 +128,7 @@ export default function GroupChatInterface({
 
     try {
       const res = await fetch(
-        `http://localhost:3000/groups/${groupId}/messages`,
+        `${process.env.NEXT_PUBLIC_API_URL}/groups/${groupId}/messages`,
         {
           method: "POST",
           headers: {
@@ -430,3 +430,4 @@ export default function GroupChatInterface({
     </div>
   );
 }
+

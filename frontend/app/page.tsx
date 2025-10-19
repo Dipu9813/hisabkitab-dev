@@ -234,7 +234,7 @@ export default function App() {
       const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token) return;
-      const res = await fetch("http://localhost:3000/groups", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(await res.text());
@@ -245,7 +245,7 @@ export default function App() {
         groups.map(async (group: any) => {
           try {
             const detailRes = await fetch(
-              `http://localhost:3000/groups/${group.id}`,
+              `${process.env.NEXT_PUBLIC_API_URL}/groups/${group.id}`,
               {
                 headers: { Authorization: `Bearer ${token}` },
               }
@@ -316,7 +316,7 @@ export default function App() {
         return;
       }
 
-      const res = await fetch("http://localhost:3000/loans", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans", {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -467,7 +467,7 @@ export default function App() {
       const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token) throw new Error("No token");
-      const res = await fetch("http://localhost:3000/groups", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -955,3 +955,5 @@ export default function App() {
     </div>
   );
 }
+
+

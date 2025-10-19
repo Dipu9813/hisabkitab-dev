@@ -33,7 +33,7 @@ export default function TransactionSuccess({
         if (typeof window !== "undefined") {
           token = localStorage.getItem("token") || "";
         }
-        const res = await fetch(`http://localhost:3000/users/search/${encodeURIComponent(mobileNumber)}`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/search/${encodeURIComponent(mobileNumber)}`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -168,3 +168,4 @@ export default function TransactionSuccess({
     </div>
   )
 }
+

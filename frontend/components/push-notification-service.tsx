@@ -116,7 +116,7 @@ export const usePushNotifications = (): PushNotificationService => {
       const subscription =
         await serviceWorkerRegistration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey).buffer as ArrayBuffer,
         });
       console.log(
         "✅ Push subscription created successfully:",
@@ -125,7 +125,7 @@ export const usePushNotifications = (): PushNotificationService => {
 
       // Send subscription to your server
       console.log("🌐 Sending subscription to server...");
-      const response = await fetch("http://localhost:3000/push/subscribe", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscribe`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -164,7 +164,7 @@ export const usePushNotifications = (): PushNotificationService => {
           await subscription.unsubscribe();
 
           // Remove subscription from server
-          await fetch("http://localhost:3000/push/unsubscribe", {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/unsubscribe`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -313,3 +313,5 @@ export const PushNotificationManager: React.FC = () => {
     </div>
   );
 };
+
+
