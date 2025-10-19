@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HisabKitab PWA - QR Code Access</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        min-height: 100vh;
+        text-align: center;
+      }
+      .container {
+        max-width: 500px;
+        margin: 0 auto;
+      }
+      .title {
+        font-size: 28px;
+        margin: 20px 0;
+        font-weight: bold;
+      }
+      .qr-section {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin: 30px 0;
+        color: #333;
+      }
+      .qr-code {
+        margin: 20px 0;
+      }
+      .url-box {
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 20px 0;
+        font-family: monospace;
+        word-break: break-all;
+        font-size: 14px;
+      }
+      .instructions {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: left;
+        line-height: 1.6;
+      }
+      .button {
+        background: #4f46e5;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        margin: 10px;
+        text-decoration: none;
+        display: inline-block;
+      }
+      .button:hover {
+        background: #4338ca;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="title">📱 HisabKitab PWA Access</div>
+
+      <div class="qr-section">
+        <h3>Scan QR Code with Your Phone</h3>
+        <div class="qr-code" id="qrcode"></div>
+        <div class="url-box" id="urlBox">Loading...</div>
+        <a href="#" id="directLink" class="button">Open Mobile Test Page</a>
+      </div>
+
+      <div class="instructions">
+        <h3>📋 Instructions</h3>
+        <p>
+          <strong>Step 1:</strong> Scan the QR code above with your phone's
+          camera or QR code scanner
+        </p>
+        <p>
+          <strong>Step 2:</strong> Open the link in your phone's browser
+          (Chrome/Safari)
+        </p>
+        <p>
+          <strong>Step 3:</strong> Check if all PWA requirements show green
+          checkmarks
+        </p>
+        <p><strong>Step 4:</strong> Try installing the app:</p>
+        <ul>
+          <li>
+            <strong>Android:</strong> Look for "Add to Home Screen" or install
+            banner
+          </li>
+          <li><strong>iOS:</strong> Share button → "Add to Home Screen"</li>
+        </ul>
+        <p>
+          <strong>Step 5:</strong> Once installed, test launching from your home
+          screen
+        </p>
+      </div>
+
+      <div class="instructions">
+        <h3>🔗 Direct Links</h3>
+        <p>
+          Main App:
+          <a href="/" style="color: #60a5fa">http://localhost:3002/</a>
+        </p>
+        <p>
+          Mobile PWA Test:
+          <a
+            href="/mobile-install-test.html"
+            style="color: #60a5fa"
+            id="testLink"
+            >Test Page</a
+          >
+        </p>
+      </div>
+    </div>
+
+    <!-- QR Code Generation -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Get current domain and port
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
+        const port = window.location.port;
+        const baseUrl = `${protocol}//${hostname}${port ? ":" + port : ""}`;
+
+        // Mobile test page URL
+        const mobileTestUrl = `${baseUrl}/mobile-install-test.html`;
+
+        // Update URL display
+        document.getElementById("urlBox").textContent = mobileTestUrl;
+        document.getElementById("directLink").href = mobileTestUrl;
+        document.getElementById("testLink").href = mobileTestUrl;
+
+        // Generate QR code
+        QRCode.toCanvas(
+          document.getElementById("qrcode"),
+          mobileTestUrl,
+          {
+            width: 256,
+            margin: 2,
+            color: {
+              dark: "#000000",
+              light: "#FFFFFF",
+            },
+          },
+          function (error) {
+            if (error) {
+              console.error("QR code generation failed:", error);
+              document.getElementById("qrcode").innerHTML =
+                "<p>QR code generation failed</p>";
+            }
+          }
+        );
+      });
+    </script>
+  </body>
+</html>

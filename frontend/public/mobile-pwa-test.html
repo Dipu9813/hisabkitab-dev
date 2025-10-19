@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>📱 Mobile PWA Test - HisabKitab</title>
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#4F46E5" />
+    <meta name="background-color" content="#ffffff" />
+
+    <!-- iOS PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="HisabKitab" />
+    <link rel="apple-touch-icon" href="/icon-192x192.svg" />
+
+    <!-- Microsoft PWA Meta Tags -->
+    <meta name="msapplication-TileColor" content="#4F46E5" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+
+    <!-- Standard Icons -->
+    <link rel="icon" href="/favicon.png" />
+    <link rel="shortcut icon" href="/favicon.png" />
+
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        min-height: 100vh;
+        box-sizing: border-box;
+      }
+      .container {
+        max-width: 400px;
+        margin: 0 auto;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.15);
+        padding: 25px;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        margin: 15px 0;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        text-align: center;
+        margin: 0 0 20px 0;
+        font-size: 24px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 15px 0 10px 0;
+      }
+      .status {
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.2);
+        font-size: 14px;
+        line-height: 1.4;
+      }
+      .success {
+        background: rgba(76, 175, 80, 0.4);
+      }
+      .error {
+        background: rgba(244, 67, 54, 0.4);
+      }
+      .warning {
+        background: rgba(255, 193, 7, 0.4);
+      }
+      .info {
+        background: rgba(33, 150, 243, 0.4);
+      }
+
+      button {
+        background: #4caf50;
+        color: white;
+        padding: 15px 20px;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 8px 0;
+        width: 100%;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+      button:hover,
+      button:active {
+        background: #45a049;
+        transform: translateY(-1px);
+      }
+      button:disabled {
+        background: rgba(255, 255, 255, 0.3);
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .install-section {
+        text-align: center;
+        margin: 20px 0;
+      }
+      .big-button {
+        background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+        font-size: 18px;
+        padding: 20px;
+        border-radius: 15px;
+        font-weight: bold;
+      }
+
+      .step {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 8px;
+        border-left: 4px solid #4caf50;
+      }
+
+      .device-info {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.8);
+        margin: 10px 0;
+      }
+
+      .emoji {
+        font-size: 24px;
+        margin-right: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h1>📱 HisabKitab Mobile PWA</h1>
+        <div class="device-info" id="device-info">Detecting device...</div>
+
+        <div id="status-container">
+          <div class="status info" id="browser-status">
+            🌐 Checking browser compatibility...
+          </div>
+          <div class="status" id="pwa-status">📱 Checking PWA readiness...</div>
+          <div class="status" id="install-status">
+            ⬇️ Checking install capability...
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="card install-section"
+        id="install-section"
+        style="display: none"
+      >
+        <h2>🎉 Ready to Install!</h2>
+        <button class="big-button" onclick="installPWA()" id="install-btn">
+          <span class="emoji">📱</span>Install HisabKitab App
+        </button>
+      </div>
+
+      <div class="card" id="manual-install">
+        <h2>📋 Manual Installation Steps</h2>
+        <div id="install-instructions"></div>
+      </div>
+
+      <div class="card">
+        <h2>🔧 PWA Features Test</h2>
+        <button onclick="testServiceWorker()">Test Service Worker</button>
+        <button onclick="testManifest()">Test Manifest</button>
+        <button onclick="testNotifications()">Test Notifications</button>
+        <button onclick="testOffline()">Test Offline Mode</button>
+      </div>
+
+      <div class="card">
+        <h2>📊 PWA Checklist</h2>
+        <div class="status" id="manifest-check">📋 Manifest: Checking...</div>
+        <div class="status" id="sw-check">⚙️ Service Worker: Checking...</div>
+        <div class="status" id="https-check">
+          🔒 HTTPS/Localhost: Checking...
+        </div>
+        <div class="status" id="icons-check">🎨 Icons: Checking...</div>
+        <div class="status" id="mobile-check">
+          📱 Mobile Optimized: Checking...
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let deferredPrompt;
+      let isIOS = false;
+      let isAndroid = false;
+
+      // Detect device and browser
+      function detectDevice() {
+        const userAgent = navigator.userAgent;
+        isIOS = /iPad|iPhone|iPod/.test(userAgent);
+        isAndroid = /Android/.test(userAgent);
+
+        const device = isIOS ? "iOS" : isAndroid ? "Android" : "Desktop";
+        const browser = getBrowser();
+
+        document.getElementById(
+          "device-info"
+        ).innerHTML = `Device: ${device} | Browser: ${browser} | Screen: ${screen.width}x${screen.height}`;
+
+        updateBrowserStatus();
+        generateInstallInstructions();
+      }
+
+      function getBrowser() {
+        const userAgent = navigator.userAgent;
+        if (userAgent.includes("Chrome") && !userAgent.includes("Edge"))
+          return "Chrome";
+        if (userAgent.includes("Firefox")) return "Firefox";
+        if (userAgent.includes("Safari") && !userAgent.includes("Chrome"))
+          return "Safari";
+        if (userAgent.includes("Edge")) return "Edge";
+        return "Unknown";
+      }
+
+      function updateBrowserStatus() {
+        const browserStatus = document.getElementById("browser-status");
+        const browser = getBrowser();
+
+        if ((isAndroid && browser === "Chrome") || (!isIOS && !isAndroid)) {
+          browserStatus.className = "status success";
+          browserStatus.innerHTML = "✅ Browser supports PWA installation";
+        } else if (isIOS) {
+          browserStatus.className = "status warning";
+          browserStatus.innerHTML = '⚠️ iOS: Use "Add to Home Screen" feature';
+        } else {
+          browserStatus.className = "status warning";
+          browserStatus.innerHTML = "⚠️ Limited PWA support in this browser";
+        }
+      }
+
+      function generateInstallInstructions() {
+        const instructions = document.getElementById("install-instructions");
+        let steps = "";
+
+        if (isIOS) {
+          steps = `
+                    <div class="step">1. Tap the Share button <span style="font-size: 20px;">⎋</span> at the bottom</div>
+                    <div class="step">2. Scroll down and tap "Add to Home Screen"</div>
+                    <div class="step">3. Tap "Add" to confirm</div>
+                    <div class="step">4. Find the HisabKitab app on your home screen</div>
+                `;
+        } else if (isAndroid) {
+          steps = `
+                    <div class="step">1. Tap the menu (⋮) in your browser</div>
+                    <div class="step">2. Look for "Add to Home screen" or "Install app"</div>
+                    <div class="step">3. Tap "Add" or "Install" to confirm</div>
+                    <div class="step">4. Find the HisabKitab app in your app drawer</div>
+                `;
+        } else {
+          steps = `
+                    <div class="step">1. Look for install icon (⬇️) in address bar</div>
+                    <div class="step">2. Or use browser menu → "Install HisabKitab"</div>
+                    <div class="step">3. Click "Install" to confirm</div>
+                    <div class="step">4. Find the app in your applications</div>
+                `;
+        }
+
+        instructions.innerHTML = steps;
+      }
+
+      // Test functions
+      async function testServiceWorker() {
+        const swStatus = document.getElementById("sw-check");
+        try {
+          if ("serviceWorker" in navigator) {
+            const registration = await navigator.serviceWorker.register(
+              "/sw.js"
+            );
+            swStatus.className = "status success";
+            swStatus.innerHTML = "✅ Service Worker: Registered successfully";
+          } else {
+            swStatus.className = "status error";
+            swStatus.innerHTML = "❌ Service Worker: Not supported";
+          }
+        } catch (error) {
+          swStatus.className = "status error";
+          swStatus.innerHTML = "❌ Service Worker: Registration failed";
+        }
+      }
+
+      async function testManifest() {
+        const manifestStatus = document.getElementById("manifest-check");
+        try {
+          const response = await fetch("/manifest.json");
+          if (response.ok) {
+            const manifest = await response.json();
+            manifestStatus.className = "status success";
+            manifestStatus.innerHTML = `✅ Manifest: ${manifest.name}`;
+
+            // Test icons
+            const iconsCheck = document.getElementById("icons-check");
+            if (manifest.icons && manifest.icons.length > 0) {
+              iconsCheck.className = "status success";
+              iconsCheck.innerHTML = `✅ Icons: ${manifest.icons.length} available`;
+            } else {
+              iconsCheck.className = "status warning";
+              iconsCheck.innerHTML = "⚠️ Icons: None found";
+            }
+          } else {
+            manifestStatus.className = "status error";
+            manifestStatus.innerHTML = "❌ Manifest: Not found";
+          }
+        } catch (error) {
+          manifestStatus.className = "status error";
+          manifestStatus.innerHTML = "❌ Manifest: Error loading";
+        }
+      }
+
+      async function testNotifications() {
+        if ("Notification" in window) {
+          const permission = await Notification.requestPermission();
+          if (permission === "granted") {
+            new Notification("HisabKitab PWA", {
+              body: "Notifications are working! 🎉",
+              icon: "/icon-192x192.svg",
+            });
+          }
+        }
+      }
+
+      function testOffline() {
+        if ("serviceWorker" in navigator && "caches" in window) {
+          alert(
+            "Offline support is available! Try disconnecting your internet and reloading this page."
+          );
+        } else {
+          alert("Offline support not available in this browser.");
+        }
+      }
+
+      // PWA Install
+      function installPWA() {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === "accepted") {
+              console.log("User accepted the install prompt");
+            }
+            deferredPrompt = null;
+            document.getElementById("install-section").style.display = "none";
+          });
+        } else if (isIOS) {
+          alert(
+            'Tap the Share button at the bottom and select "Add to Home Screen"'
+          );
+        } else {
+          alert("Use your browser menu to install this app");
+        }
+      }
+
+      // Check all PWA requirements
+      function checkPWARequirements() {
+        // HTTPS check
+        const httpsCheck = document.getElementById("https-check");
+        if (
+          location.protocol === "https:" ||
+          location.hostname === "localhost"
+        ) {
+          httpsCheck.className = "status success";
+          httpsCheck.innerHTML = "✅ HTTPS/Localhost: Secure connection";
+        } else {
+          httpsCheck.className = "status error";
+          httpsCheck.innerHTML =
+            "❌ HTTPS/Localhost: Secure connection required";
+        }
+
+        // Mobile optimization check
+        const mobileCheck = document.getElementById("mobile-check");
+        const viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport && viewport.content.includes("width=device-width")) {
+          mobileCheck.className = "status success";
+          mobileCheck.innerHTML = "✅ Mobile Optimized: Responsive design";
+        } else {
+          mobileCheck.className = "status warning";
+          mobileCheck.innerHTML =
+            "⚠️ Mobile Optimized: May need viewport meta tag";
+        }
+
+        // Overall PWA status
+        const pwaStatus = document.getElementById("pwa-status");
+        if (
+          location.protocol === "https:" ||
+          location.hostname === "localhost"
+        ) {
+          pwaStatus.className = "status success";
+          pwaStatus.innerHTML =
+            "✅ PWA Ready: Can be installed on mobile devices";
+        } else {
+          pwaStatus.className = "status warning";
+          pwaStatus.innerHTML =
+            "⚠️ PWA Ready: Needs HTTPS for full functionality";
+        }
+      }
+
+      // Event listeners
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById("install-section").style.display = "block";
+
+        const installStatus = document.getElementById("install-status");
+        installStatus.className = "status success";
+        installStatus.innerHTML = "✅ Install: Ready to install!";
+      });
+
+      window.addEventListener("appinstalled", () => {
+        console.log("PWA was installed");
+        deferredPrompt = null;
+        document.getElementById("install-section").style.display = "none";
+        alert("🎉 HisabKitab installed successfully!");
+      });
+
+      // Initialize
+      window.addEventListener("load", () => {
+        detectDevice();
+        checkPWARequirements();
+        testServiceWorker();
+        testManifest();
+
+        // Show install status after a delay
+        setTimeout(() => {
+          const installStatus = document.getElementById("install-status");
+          if (!deferredPrompt && !isIOS) {
+            installStatus.className = "status warning";
+            installStatus.innerHTML =
+              "⚠️ Install: Interact with the page to trigger install prompt";
+          } else if (isIOS) {
+            installStatus.className = "status info";
+            installStatus.innerHTML =
+              '📱 Install: Use Safari "Add to Home Screen" feature';
+          }
+        }, 3000);
+      });
+
+      // Simulate user engagement
+      let interactionCount = 0;
+      document.addEventListener("click", () => {
+        interactionCount++;
+        if (interactionCount === 5 && !deferredPrompt && !isIOS) {
+          const installStatus = document.getElementById("install-status");
+          installStatus.className = "status info";
+          installStatus.innerHTML =
+            "🔄 Install: Continue interacting to trigger install prompt";
+        }
+      });
+    </script>
+  </body>
+</html>

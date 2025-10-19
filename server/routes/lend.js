@@ -1,0 +1,876 @@
+const express = require("express");
+const router = express.Router();
+const { supabase, supabaseAdmin } = require("../utils/supabaseClient");
+const authenticateToken = require("../middleware/authenticateToken");
+const { sendReminderNotification } = require("../utils/pushNotifications");
+
+// Lend money route
+router.post("/lend", authenticateToken, async (req, res) => {
+  const { ph_number, amount, remark, deadline } = req.body;
+  const lenderId = req.user.sub;
+
+  console.log("💰 Loan creation request:", {
+    ph_number,
+    amount,
+    remark,
+    deadline,
+    lenderId,
+  });
+
+  if (!ph_number || !amount || !deadline) {
+    return res
+      .status(400)
+      .json({ error: "Phone number, amount, and deadline are required" });
+  }
+
+  try {
+    // Find receiver by phone number
+    console.log("🔍 Looking up receiver by phone:", ph_number);
+    const { data: receiverData, error: receiverError } = await supabaseAdmin
+      .from("details")
+      .select("id")
+      .eq("ph_number", ph_number)
+      .single();
+
+    if (receiverError || !receiverData) {
+      console.log("❌ Receiver not found:", receiverError?.message);
+      return res.status(404).json({ error: "Receiver not found" });
+    }
+
+    const receiverId = receiverData.id;
+    console.log("✅ Receiver found:", receiverId);
+
+    // Insert loan record (using due_date instead of deadline)
+    console.log("📝 Creating loan record...");
+    const { data, error } = await supabaseAdmin
+      .from("loans")
+      .insert([
+        {
+          lender_id: lenderId,
+          receiver_id: receiverId,
+          amount,
+          reason: remark, // Using 'reason' field from schema
+          due_date: deadline, // Fixed: deadline -> due_date
+          status: "pending",
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.log("❌ Loan creation error:", error);
+      return res.status(400).json({ error: error.message });
+    }
+    console.log("✅ Loan created successfully:", data);
+    res.json({ message: "Loan request created", data });
+  } catch (err) {
+    console.error("❌ Unexpected error in loan creation:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}); // Added missing closing brace and parenthesis
+
+// Get all loans for the logged-in user (as lender or receiver)
+router.get("/loans", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+
+  console.log("📋 Fetching loans for user:", userId);
+
+  try {
+    // First, get user details to check their phone number for business loans
+    const { data: userDetails, error: userError } = await supabaseAdmin
+      .from("details")
+      .select("full_name, ph_number")
+      .eq("id", userId)
+      .single();
+
+    if (userError) {
+      console.log("❌ User details error:", userError);
+      return res.status(400).json({ error: "Failed to get user details" });
+    }
+
+    // Get basic personal loan data
+    const { data: loans, error } = await supabaseAdmin
+      .from("loans")
+      .select("*")
+      .or(`lender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.log("❌ Loans query error:", error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log("✅ Found personal loans:", loans?.length || 0); // Get business loans where the user is the customer (by user ID, name, or phone)
+    const { data: businessLoans, error: businessLoansError } =
+      await supabaseAdmin
+        .from("business_loans")
+        .select(
+          `
+        *,
+        businesses!inner (
+          name,
+          unique_short_id
+        )
+      `
+        )
+        .or(
+          `customer_user_id.eq.${userId},customer_name.ilike.%${userDetails.full_name}%,customer_name.ilike.%${userDetails.ph_number}%`
+        )
+        .eq("is_paid", false)
+        .order("created_at", { ascending: false });
+
+    if (businessLoansError) {
+      console.log("⚠️ Business loans error:", businessLoansError.message);
+      // Continue without business loans
+    }
+
+    console.log("✅ Found business loans:", businessLoans?.length || 0);
+
+    // Get user details for personal loans
+    const userIds = new Set();
+    loans.forEach((loan) => {
+      userIds.add(loan.lender_id);
+      userIds.add(loan.receiver_id);
+    });
+
+    const { data: allUserDetails, error: allUserError } = await supabaseAdmin
+      .from("details")
+      .select("id, full_name, ph_number, profile_pic")
+      .in("id", Array.from(userIds));
+
+    if (allUserError) {
+      console.log("⚠️ User details error:", allUserError.message);
+      // Continue without user details
+    }
+
+    // Create user lookup map
+    const userMap = {};
+    allUserDetails?.forEach((user) => {
+      userMap[user.id] = user;
+    });
+
+    // Enrich personal loans with user details
+    const enrichedLoans = loans.map((loan) => ({
+      ...loan,
+      loan_type: "personal",
+      lender: userMap[loan.lender_id] || null,
+      receiver: userMap[loan.receiver_id] || null,
+    })); // Transform business loans to match the personal loan structure
+    const transformedBusinessLoans = (businessLoans || []).map(
+      (businessLoan) => ({
+        id: businessLoan.id,
+        amount: businessLoan.amount,
+        reason: businessLoan.description,
+        due_date: null, // Business loans don't have due dates in current schema
+        status: "confirmed", // Business loans are considered confirmed
+        created_at: businessLoan.created_at,
+        updated_at: businessLoan.updated_at,
+        loan_type: "business",
+        business_id: businessLoan.business_id,
+        business_name: businessLoan.businesses.name,
+        business_short_id: businessLoan.businesses.unique_short_id,
+        lender: {
+          id: businessLoan.business_id,
+          full_name: businessLoan.businesses.name,
+          ph_number: businessLoan.businesses.unique_short_id,
+        },
+        receiver: {
+          id: userId,
+          full_name: userDetails.full_name,
+          ph_number: userDetails.ph_number,
+        },
+        customer_name: businessLoan.customer_name,
+        is_paid: businessLoan.is_paid,
+        verification_status: businessLoan.verification_status || "none",
+        payment_requested_at: businessLoan.payment_requested_at,
+        payment_method: businessLoan.payment_method,
+        payment_reference: businessLoan.payment_reference,
+        verified_at: businessLoan.verified_at,
+        rejection_reason: businessLoan.rejection_reason,
+        receiver_id: userId, // Add receiver_id for filtering
+        lender_id: businessLoan.business_id, // Add lender_id for consistency
+      })
+    );
+
+    // Combine all loans
+    const allLoans = [...enrichedLoans, ...transformedBusinessLoans];
+
+    console.log("✅ Combined loans prepared:", allLoans.length);
+    res.json({ data: allLoans });
+  } catch (err) {
+    console.error("❌ Error fetching loans:", err);
+    res.status(500).json({ error: "Failed to fetch loans" });
+  }
+});
+
+// Receiver confirms the loan
+router.post("/loans/:id/confirm", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+  const loanId = req.params.id;
+
+  try {
+    // Only receiver can confirm
+    const { data: loan, error: loanError } = await supabaseAdmin
+      .from("loans")
+      .select("*")
+      .eq("id", loanId)
+      .single();
+
+    if (loanError || !loan)
+      return res.status(404).json({ error: "Loan not found" });
+    if (loan.receiver_id !== userId)
+      return res.status(403).json({ error: "Not authorized" });
+
+    const { data, error } = await supabaseAdmin
+      .from("loans")
+      .update({ status: "confirmed" })
+      .eq("id", loanId)
+      .select();
+
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ message: "Loan confirmed", data });
+  } catch (err) {
+    console.error("Error confirming loan:", err);
+    res.status(500).json({ error: "Failed to confirm loan" });
+  }
+});
+
+// Borrower requests loan payment confirmation
+router.post(
+  "/loans/:id/payment-request",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.sub;
+    const loanId = req.params.id;
+
+    try {
+      // Only the borrower/receiver can request payment confirmation
+      const { data: loan, error: loanError } = await supabaseAdmin
+        .from("loans")
+        .select("*")
+        .eq("id", loanId)
+        .single();
+
+      if (loanError || !loan)
+        return res.status(404).json({ error: "Loan not found" });
+      if (loan.receiver_id !== userId)
+        return res.status(403).json({
+          error:
+            "Not authorized - only borrowers can request payment confirmation",
+        });
+      if (loan.status !== "confirmed")
+        return res
+          .status(400)
+          .json({ error: "Only confirmed loans can have payment requests" });
+
+      const { data, error } = await supabaseAdmin
+        .from("loans")
+        .update({ status: "payment_requested" })
+        .eq("id", loanId)
+        .select();
+
+      if (error) return res.status(400).json({ error: error.message });
+      res.json({ message: "Payment request submitted", data });
+    } catch (err) {
+      console.error("Error requesting payment confirmation:", err);
+      res.status(500).json({ error: "Failed to submit payment request" });
+    }
+  }
+);
+
+// Lender confirms payment receipt
+router.post(
+  "/loans/:id/confirm-payment",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.sub;
+    const loanId = req.params.id;
+
+    try {
+      // Only the lender can confirm payment
+      const { data: loan, error: loanError } = await supabaseAdmin
+        .from("loans")
+        .select("*")
+        .eq("id", loanId)
+        .single();
+
+      if (loanError || !loan)
+        return res.status(404).json({ error: "Loan not found" });
+      if (loan.lender_id !== userId)
+        return res.status(403).json({
+          error: "Not authorized - only lenders can confirm payments",
+        });
+      if (loan.status !== "payment_requested")
+        return res.status(400).json({
+          error:
+            "Only loans with pending payment requests can be confirmed as paid",
+        });
+      // Insert into loan history
+      const { data: historyData, error: historyError } = await supabaseAdmin
+        .from("loan_history")
+        .insert([
+          {
+            original_loan_id: loan.id,
+            lender_id: loan.lender_id,
+            receiver_id: loan.receiver_id,
+            amount: loan.amount,
+            reason: loan.reason, // Fixed: remark -> reason
+            due_date: loan.due_date, // Fixed: deadline -> due_date
+            created_at: loan.created_at,
+            paid_at: new Date().toISOString(),
+          },
+        ])
+        .select();
+
+      if (historyError) {
+        console.error("Error creating history record:", historyError);
+        return res
+          .status(400)
+          .json({ error: "Failed to record payment history" });
+      }
+
+      // Delete from active loans
+      const { data, error } = await supabaseAdmin
+        .from("loans")
+        .delete()
+        .eq("id", loanId)
+        .select();
+
+      if (error) return res.status(400).json({ error: error.message });
+      res.json({
+        message: "Payment confirmed and loan marked as paid",
+        data: historyData,
+      });
+    } catch (err) {
+      console.error("Error confirming payment:", err);
+      res.status(500).json({ error: "Failed to confirm payment" });
+    }
+  }
+);
+
+// Get loan history
+router.get("/loan-history", authenticateToken, async (req, res) => {
+  const userId = req.user.sub;
+
+  console.log("📊 Fetching loan history for user:", userId);
+
+  try {
+    // Query loan history and manually join with details
+    const { data: historyData, error: historyError } = await supabaseAdmin
+      .from("loan_history")
+      .select("*")
+      .or(`lender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .order("paid_at", { ascending: false }); // Fixed: payment_date -> paid_at
+
+    if (historyError) {
+      console.error("❌ History query error:", historyError);
+      return res.status(400).json({ error: historyError.message });
+    }
+
+    console.log("✅ Found loan history records:", historyData?.length || 0);
+
+    // Get all unique user IDs from the history data
+    const userIds = [
+      ...new Set([
+        ...historyData.map((item) => item.lender_id),
+        ...historyData.map((item) => item.receiver_id),
+      ]),
+    ];
+
+    // Fetch user details for all involved users
+    let userDetails = {};
+    if (userIds.length > 0) {
+      const { data: usersData, error: usersError } = await supabaseAdmin
+        .from("details")
+        .select("id, full_name, ph_number, profile_pic")
+        .in("id", userIds);
+
+      if (!usersError && usersData) {
+        usersData.forEach((user) => {
+          userDetails[user.id] = user;
+        });
+      }
+    }
+
+    // Combine the data
+    const enrichedData = historyData.map((item) => ({
+      ...item,
+      lender: userDetails[item.lender_id] || null,
+      receiver: userDetails[item.receiver_id] || null,
+    }));
+
+    res.json({ data: enrichedData });
+  } catch (err) {
+    console.error("Error fetching loan history:", err);
+    res.status(500).json({ error: "Failed to fetch loan history" });
+  }
+});
+
+// Request payment verification for business loan (receiver sends paid request)
+router.post(
+  "/business-loans/:id/request-paid",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.sub;
+    const businessLoanId = req.params.id;
+    const { payment_method, payment_reference } = req.body;
+
+    console.log(
+      "� Requesting payment verification for business loan:",
+      businessLoanId,
+      "by user:",
+      userId
+    );
+
+    try {
+      // First, get user details to verify they are the customer
+      const { data: userDetails, error: userError } = await supabaseAdmin
+        .from("details")
+        .select("full_name, ph_number")
+        .eq("id", userId)
+        .single();
+
+      if (userError || !userDetails) {
+        return res.status(400).json({ error: "Failed to get user details" });
+      }
+
+      // Get the business loan and verify the user is the customer
+      const { data: businessLoan, error: loanError } = await supabaseAdmin
+        .from("business_loans")
+        .select(
+          `
+        *,
+        businesses!inner (
+          name,
+          unique_short_id
+        )
+      `
+        )
+        .eq("id", businessLoanId)
+        .single();
+
+      if (loanError || !businessLoan) {
+        return res.status(404).json({ error: "Business loan not found" });
+      }
+
+      // Check if the customer name matches the user (by name or phone)
+      const customerName = businessLoan.customer_name.toLowerCase();
+      const userName = userDetails.full_name.toLowerCase();
+      const userPhone = userDetails.ph_number;
+
+      if (
+        !customerName.includes(userName) &&
+        !customerName.includes(userPhone)
+      ) {
+        return res.status(403).json({
+          error:
+            "Not authorized - you can only request verification for your own loans",
+        });
+      }
+
+      if (businessLoan.is_paid) {
+        return res
+          .status(400)
+          .json({ error: "Loan is already marked as paid" });
+      }
+
+      if (businessLoan.verification_status === "pending") {
+        return res
+          .status(400)
+          .json({ error: "Payment verification request already pending" });
+      }
+
+      // Update the business loan to request payment verification
+      const { data, error } = await supabaseAdmin
+        .from("business_loans")
+        .update({
+          verification_status: "pending",
+          payment_requested_at: new Date().toISOString(),
+          payment_method: payment_method || null,
+          payment_reference: payment_reference || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", businessLoanId)
+        .select();
+
+      if (error) {
+        console.error("❌ Error requesting payment verification:", error);
+        return res.status(400).json({ error: error.message });
+      }
+
+      console.log("✅ Payment verification requested successfully");
+      res.json({
+        message:
+          "Payment verification requested successfully. Business will verify and approve your payment.",
+        data: data[0],
+        business: businessLoan.businesses,
+      });
+    } catch (err) {
+      console.error("❌ Error requesting payment verification:", err);
+      res.status(500).json({ error: "Failed to request payment verification" });
+    }
+  }
+);
+
+// Business verifies and approves/rejects payment (business account functionality)
+router.post(
+  "/business-loans/:id/verify-payment",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.sub;
+    const businessLoanId = req.params.id;
+    const { approved, rejection_reason } = req.body;
+
+    console.log(
+      "🏢 Verifying payment for business loan:",
+      businessLoanId,
+      "by user:",
+      userId,
+      "approved:",
+      approved
+    );
+
+    try {
+      // Get the business loan
+      const { data: businessLoan, error: loanError } = await supabaseAdmin
+        .from("business_loans")
+        .select(
+          `
+        *,
+        businesses!inner (
+          id,
+          name,
+          unique_short_id
+        )
+      `
+        )
+        .eq("id", businessLoanId)
+        .single();
+
+      if (loanError || !businessLoan) {
+        return res.status(404).json({ error: "Business loan not found" });
+      }
+
+      // Check if user is a member of the business (has permission to verify)
+      const { data: businessMember, error: memberError } = await supabaseAdmin
+        .from("business_members")
+        .select("role")
+        .eq("business_id", businessLoan.businesses.id)
+        .eq("user_id", userId)
+        .single();
+
+      if (memberError || !businessMember) {
+        return res.status(403).json({
+          error: "Not authorized - only business members can verify payments",
+        });
+      }
+
+      // Check if loan is pending verification
+      if (businessLoan.verification_status !== "pending") {
+        return res.status(400).json({
+          error: "Loan is not pending payment verification",
+        });
+      }
+
+      if (businessLoan.is_paid) {
+        return res.status(400).json({
+          error: "Loan is already marked as paid",
+        });
+      }
+
+      // Update loan based on verification result
+      const updateData = {
+        verified_by: userId,
+        verified_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (approved) {
+        updateData.is_paid = true;
+        updateData.verification_status = "approved";
+        updateData.paid_at = new Date().toISOString();
+      } else {
+        updateData.verification_status = "rejected";
+        updateData.rejection_reason =
+          rejection_reason || "Payment not verified";
+      }
+
+      const { data, error: updateError } = await supabaseAdmin
+        .from("business_loans")
+        .update(updateData)
+        .eq("id", businessLoanId)
+        .select();
+
+      if (updateError) {
+        console.error("❌ Error verifying payment:", updateError);
+        return res.status(400).json({ error: updateError.message });
+      }
+
+      const message = approved
+        ? "Payment verified and loan marked as paid successfully"
+        : "Payment verification rejected";
+
+      console.log(`✅ ${message}`);
+      res.json({
+        message,
+        data: data[0],
+        business: businessLoan.businesses,
+      });
+    } catch (err) {
+      console.error("❌ Error verifying payment:", err);
+      res.status(500).json({ error: "Failed to verify payment" });
+    }
+  }
+);
+
+// Get business loans pending verification (for business dashboard)
+router.get(
+  "/business-loans/pending-verification",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.sub;
+
+    console.log(
+      "🔍 Fetching business loans pending verification for user:",
+      userId
+    );
+
+    try {
+      // Get all businesses where user is a member
+      const { data: businessMemberships, error: memberError } =
+        await supabaseAdmin
+          .from("business_members")
+          .select(
+            `
+          business_id,
+          role,
+          businesses!inner(id, name, unique_short_id)
+        `
+          )
+          .eq("user_id", userId);
+
+      if (memberError) {
+        console.error("❌ Error fetching business memberships:", memberError);
+        return res
+          .status(400)
+          .json({ error: "Failed to fetch business memberships" });
+      }
+
+      if (!businessMemberships || businessMemberships.length === 0) {
+        return res.json({ data: [] });
+      }
+
+      const businessIds = businessMemberships.map((bm) => bm.business_id);
+
+      // Get all business loans pending verification for these businesses
+      const { data: pendingLoans, error: loansError } = await supabaseAdmin
+        .from("business_loans")
+        .select(
+          `
+          *,
+          businesses!inner(id, name, unique_short_id)
+        `
+        )
+        .in("business_id", businessIds)
+        .eq("verification_status", "pending")
+        .eq("is_paid", false)
+        .order("payment_requested_at", { ascending: false });
+
+      if (loansError) {
+        console.error("❌ Error fetching pending loans:", loansError);
+        return res
+          .status(400)
+          .json({ error: "Failed to fetch pending verification loans" });
+      }
+
+      console.log(
+        `✅ Found ${pendingLoans?.length || 0} loans pending verification`
+      );
+
+      res.json({
+        data: pendingLoans || [],
+        businesses: businessMemberships.map((bm) => bm.businesses),
+      });
+    } catch (err) {
+      console.error("❌ Error fetching pending verification loans:", err);
+      res
+        .status(500)
+        .json({ error: "Failed to fetch pending verification loans" });
+    }
+  }
+);
+
+// Send reminder to borrower (lender sends push notification)
+router.post("/loans/:id/send-reminder", authenticateToken, async (req, res) => {
+  console.log("Inside the send reminder route");
+  console.log("req.user:", req.user);
+  const userId = req.user.sub;
+  const loanId = req.params.id;
+
+  console.log("🔔 SEND REMINDER ROUTE HIT! 🔔");
+  console.log("🔔 Sending reminder for loan:", loanId, "by user:", userId);
+  console.log("🔔 Full URL:", req.originalUrl);
+  console.log("🔔 Method:", req.method);
+  console.log("🔔 Route params:", req.params);
+  console.log("🔔 Request method:", req.method);
+  console.log("🔔 Request URL:", req.url);
+
+  try {
+    // First, get the loan without joins
+    const { data: loan, error: loanError } = await supabaseAdmin
+      .from("loans")
+      .select("*")
+      .eq("id", loanId)
+      .single();
+
+    console.log("🔍 Loan lookup result:", { loan, loanError });
+
+    if (loanError || !loan) {
+      console.log("❌ Loan not found! Error:", loanError);
+      return res.status(404).json({ error: "Loan not found" });
+    }
+
+    console.log("✅ Loan found:", loan.id, "Status:", loan.status);
+    console.log("🔍 Lender ID:", loan.lender_id, "User ID:", userId);
+
+    if (loan.lender_id !== userId) {
+      console.log("❌ Authorization failed - not the lender");
+      return res.status(403).json({
+        error: "Not authorized - only lenders can send reminders",
+      });
+    }
+
+    console.log("✅ User is authorized as lender");
+
+    if (loan.status !== "confirmed") {
+      console.log("❌ Loan status is not confirmed:", loan.status);
+      return res.status(400).json({
+        error: "Can only send reminders for confirmed loans",
+      });
+    }
+
+    console.log("✅ Loan status is confirmed, proceeding with reminder");
+
+    // Get lender and receiver details separately
+    const { data: lenderData, error: lenderError } = await supabaseAdmin
+      .from("details")
+      .select("id, full_name, ph_number")
+      .eq("id", loan.lender_id)
+      .single();
+
+    const { data: receiverData, error: receiverError } = await supabaseAdmin
+      .from("details")
+      .select("id, full_name, ph_number")
+      .eq("id", loan.receiver_id)
+      .single();
+
+    if (lenderError || !lenderData || receiverError || !receiverData) {
+      console.log("❌ Error fetching user details:", {
+        lenderError,
+        receiverError,
+      });
+      return res.status(400).json({ error: "Failed to fetch user details" });
+    }
+
+    // Add user details to loan object
+    loan.lender = lenderData;
+    loan.receiver = receiverData;
+
+    console.log("✅ User details fetched successfully");
+
+    // Get borrower's push subscriptions
+    const { data: subscriptions, error: subError } = await supabaseAdmin
+      .from("push_subscriptions")
+      .select("*")
+      .eq("user_id", loan.receiver_id);
+
+    if (subError) {
+      console.error("❌ Error fetching subscriptions:", subError);
+      return res
+        .status(400)
+        .json({ error: "Failed to fetch push subscriptions" });
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      console.log("📱 No push subscriptions found for borrower");
+      return res.status(404).json({
+        error:
+          "The borrower hasn't enabled push notifications yet. They need to enable notifications in their profile to receive reminders.",
+        code: "NO_PUSH_SUBSCRIPTION",
+      });
+    }
+
+    console.log("📱 Found subscriptions:", subscriptions.length);
+    console.log("📱 Subscription data sample:", subscriptions[0]?.subscription);
+
+    // Prepare loan details for notification
+    const loanDetails = {
+      id: loan.id,
+      amount: loan.amount,
+      reason: loan.reason,
+      due_date: loan.due_date,
+      lender: loan.lender,
+    };
+
+    // Send reminder notification to all borrower's subscriptions
+    const notificationPromises = subscriptions.map((sub) => {
+      console.log(
+        "🔔 Sending notification with subscription:",
+        sub.subscription
+      );
+      return sendReminderNotification(sub.subscription, loanDetails);
+    });
+
+    try {
+      await Promise.all(notificationPromises);
+
+      // Update loan with last reminder timestamp
+      await supabaseAdmin
+        .from("loans")
+        .update({
+          last_reminder_sent: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", loanId);
+
+      console.log("✅ Reminder sent successfully to borrower");
+      res.json({
+        message: "Reminder sent successfully to borrower",
+        borrower: loan.receiver.full_name,
+      });
+    } catch (notificationError) {
+      console.error("❌ Error sending notification:", notificationError);
+
+      // Check if it's a subscription issue (endpoint not found, expired, etc.)
+      if (
+        notificationError.statusCode === 410 ||
+        notificationError.statusCode === 413
+      ) {
+        // Remove invalid subscriptions - fix the endpoint extraction
+        const invalidEndpoint = notificationError.endpoint;
+        if (invalidEndpoint) {
+          console.log("🗑️ Removing invalid subscription:", invalidEndpoint);
+          await supabaseAdmin
+            .from("push_subscriptions")
+            .delete()
+            .eq("user_id", loan.receiver_id)
+            .like("subscription", `%${invalidEndpoint}%`);
+        }
+
+        return res.status(400).json({
+          error:
+            "The borrower's push notification subscription has expired. They need to enable notifications again in their profile to receive reminders.",
+          code: "EXPIRED_PUSH_SUBSCRIPTION",
+        });
+      }
+
+      return res.status(500).json({
+        error: "Failed to send reminder notification",
+      });
+    }
+  } catch (err) {
+    console.error("❌ Error sending reminder:", err);
+    res.status(500).json({ error: "Failed to send reminder" });
+  }
+});
+
+module.exports = router;

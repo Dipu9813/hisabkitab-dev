@@ -1,0 +1,152 @@
+const express = require("express");
+const router = express.Router();
+const { supabase, supabaseAdmin } = require("../utils/supabaseClient");
+const authenticateToken = require("../middleware/authenticateToken");
+
+// Get all users (id, full_name, and ph_number)
+router.get("/users", authenticateToken, async (req, res) => {
+  try {
+    console.log("🔍 Fetching users from database...");
+    console.log("🔍 Request from user:", req.user?.sub, req.user?.email);
+
+    // Debug: Check if this is the Manee user
+    try {
+      const { data: currentUser } = await supabaseAdmin
+        .from('details')
+        .select('id, full_name, ph_number, email')
+        .eq('id', req.user.sub)
+        .single();
+      
+      if (currentUser && currentUser.full_name && currentUser.full_name.toLowerCase().includes('manee')) {
+        console.log('🚨 MANEE USER REQUESTING USERS LIST:', currentUser);
+      }
+    } catch (debugErr) {
+      console.log('⚠️ Debug user lookup failed:', debugErr.message);
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("details")
+      .select("id, full_name, ph_number, profile_pic")
+      .not("ph_number", "is", null); // Only return users with phone numbers
+
+    if (error) {
+      console.error("Database error:", error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log("Raw data from database:", data?.length, "users found");
+    // Filter out any users with empty or null values
+    const validUsers = data
+      .filter((user) => {
+        if (!user.id) return false;
+        if (!user.ph_number) return false;
+
+        // Handle both string and number phone numbers
+        const phoneStr = String(user.ph_number);
+        return (
+          phoneStr.trim() !== "" &&
+          phoneStr !== "null" &&
+          phoneStr !== "undefined"
+        );
+      })
+      .map((user) => ({
+        ...user,
+        ph_number: String(user.ph_number), // Convert phone number to string for consistency
+      }));
+
+    console.log("Valid users after filtering:", validUsers.length);
+    console.log("Sample user:", validUsers[0]);
+
+    res.json({ data: validUsers });
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+// Search users by name or phone number for customer selection
+router.get("/users/search", authenticateToken, async (req, res) => {
+  const { q: query } = req.query;
+
+  try {
+    console.log("🔍 Searching users with query:", query);
+
+    if (!query || query.trim().length < 2) {
+      return res.json({ data: [] });
+    }
+
+    const searchTerm = query.trim().toLowerCase();
+
+    // Search in both full_name and ph_number
+    const { data, error } = await supabaseAdmin
+      .from("details")
+      .select("id, full_name, ph_number, profile_pic")
+      .or(`full_name.ilike.%${searchTerm}%,ph_number.ilike.%${searchTerm}%`)
+      .not("ph_number", "is", null)
+      .limit(10) // Limit results for better performance
+      .order("full_name");
+
+    if (error) {
+      console.error("Search error:", error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Filter and format results
+    const validUsers = data
+      .filter((user) => {
+        if (!user.id || !user.ph_number) return false;
+
+        const phoneStr = String(user.ph_number);
+        return (
+          phoneStr.trim() !== "" &&
+          phoneStr !== "null" &&
+          phoneStr !== "undefined"
+        );
+      })
+      .map((user) => ({
+        id: user.id,
+        full_name: user.full_name || "Unknown",
+        ph_number: String(user.ph_number),
+        // Create a display text for the dropdown
+        display_text: `${user.full_name || "Unknown"} (${user.ph_number})`,
+      }));
+
+    console.log("✅ Search results:", validUsers.length, "users found");
+    res.json({ data: validUsers });
+  } catch (err) {
+    console.error("Error searching users:", err);
+    res.status(500).json({ error: "Failed to search users" });
+  }
+});
+
+// Search user by phone number
+router.get('/users/search/:phone', authenticateToken, async (req, res) => {
+  const phoneNumber = req.params.phone;
+  
+  try {
+    console.log('🔍 Searching for user by phone:', phoneNumber);
+    
+    const { data: user, error } = await supabaseAdmin
+      .from('details')
+      .select('id, full_name, ph_number, profile_pic')
+      .eq('ph_number', phoneNumber)
+      .single();
+      
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // User not found
+        return res.status(404).json({ error: 'User not found' });
+      }
+      console.error('Database error:', error);
+      return res.status(400).json({ error: error.message });
+    }
+    
+    console.log('✅ User found:', user);
+    res.json({ data: user });
+  } catch (err) {
+    console.error("Error searching user:", err);
+    res.status(500).json({ error: 'Failed to search user' });
+  }
+});
+
+module.exports = router;

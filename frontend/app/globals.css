@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Hide Next.js development indicators */
+#__next-build-watcher,
+[data-nextjs-toast],
+[data-nextjs-dialog-overlay],
+.__next-dev-overlay,
+.__nextjs_original-stack-frame,
+[data-nextjs-scroll-focus-boundary],
+nextjs-portal,
+.__next,
+#__next > div[style*="position: fixed"],
+div[style*="position: fixed"][style*="bottom: 16px"],
+div[style*="position: fixed"][style*="left: 16px"],
+div[style*="z-index: 9000"],
+div[data-nextjs-dialog],
+div[data-nextjs-dialog-overlay] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide any fixed positioned elements that might be indicators */
+body > div[style*="position: fixed"]:not([id]):not([class]) {
+  display: none !important;
+}

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>HisabKitab PWA - Mobile Test</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#4F46E5" />
+
+    <!-- iOS meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="HisabKitab" />
+    <link rel="apple-touch-icon" href="/icon-192x192.png" />
+
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        min-height: 100vh;
+      }
+      .container {
+        max-width: 400px;
+        margin: 0 auto;
+        text-align: center;
+      }
+      .logo {
+        width: 120px;
+        height: 120px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+        color: #4f46e5;
+        font-weight: bold;
+      }
+      .title {
+        font-size: 28px;
+        margin: 20px 0;
+        font-weight: bold;
+      }
+      .subtitle {
+        font-size: 16px;
+        opacity: 0.9;
+        margin-bottom: 30px;
+      }
+      .test-section {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: left;
+      }
+      .test-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+      .test-item {
+        margin: 8px 0;
+        font-size: 14px;
+      }
+      .status {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        margin-right: 10px;
+        vertical-align: middle;
+      }
+      .status.good {
+        background: #10b981;
+      }
+      .status.bad {
+        background: #ef4444;
+      }
+      .status.unknown {
+        background: #6b7280;
+      }
+
+      .install-btn {
+        background: #4f46e5;
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: bold;
+        margin: 20px 0;
+        cursor: pointer;
+        display: none;
+      }
+      .install-btn:hover {
+        background: #4338ca;
+      }
+
+      .instructions {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: left;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .browser-info {
+        font-size: 12px;
+        opacity: 0.8;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo">HK</div>
+      <div class="title">HisabKitab PWA</div>
+      <div class="subtitle">Mobile Installation Test</div>
+
+      <button id="installBtn" class="install-btn">Install App</button>
+
+      <div class="test-section">
+        <div class="test-title">PWA Requirements Check</div>
+        <div class="test-item">
+          <span id="httpsStatus" class="status unknown"></span>
+          HTTPS Connection
+        </div>
+        <div class="test-item">
+          <span id="manifestStatus" class="status unknown"></span>
+          Web App Manifest
+        </div>
+        <div class="test-item">
+          <span id="swStatus" class="status unknown"></span>
+          Service Worker
+        </div>
+        <div class="test-item">
+          <span id="iconStatus" class="status unknown"></span>
+          Icons (192px & 512px)
+        </div>
+        <div class="test-item">
+          <span id="installableStatus" class="status unknown"></span>
+          Installable
+        </div>
+      </div>
+
+      <div class="instructions">
+        <div class="test-title">Installation Instructions</div>
+        <p><strong>Android Chrome:</strong></p>
+        <p>
+          • Look for "Add to Home Screen" in the browser menu (⋮)<br />
+          • Or check for an install prompt banner<br />
+          • The app icon should appear in your app drawer
+        </p>
+
+        <p><strong>iPhone Safari:</strong></p>
+        <p>
+          • Tap the Share button (□↗)<br />
+          • Scroll down and tap "Add to Home Screen"<br />
+          • Tap "Add" in the top right
+        </p>
+
+        <p><strong>Android Samsung Internet:</strong></p>
+        <p>• Tap the menu (☰) → "Add page to" → "Home screen"</p>
+      </div>
+
+      <div class="browser-info">
+        <div>Browser: <span id="browserInfo"></span></div>
+        <div>Platform: <span id="platformInfo"></span></div>
+        <div>URL: <span id="currentUrl"></span></div>
+      </div>
+    </div>
+
+    <script>
+      // Check PWA requirements
+      function checkPWARequirements() {
+        // Check HTTPS
+        const isHTTPS =
+          location.protocol === "https:" || location.hostname === "localhost";
+        document.getElementById("httpsStatus").className = `status ${
+          isHTTPS ? "good" : "bad"
+        }`;
+
+        // Check Service Worker
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.getRegistration().then((registration) => {
+            const swStatus = registration ? "good" : "bad";
+            document.getElementById(
+              "swStatus"
+            ).className = `status ${swStatus}`;
+          });
+        } else {
+          document.getElementById("swStatus").className = "status bad";
+        }
+
+        // Check Manifest
+        fetch("/manifest.json")
+          .then((response) => (response.ok ? "good" : "bad"))
+          .catch(() => "bad")
+          .then((status) => {
+            document.getElementById(
+              "manifestStatus"
+            ).className = `status ${status}`;
+          });
+
+        // Check Icons
+        const img192 = new Image();
+        const img512 = new Image();
+        let iconCount = 0;
+        let loadedCount = 0;
+
+        function checkIconComplete() {
+          loadedCount++;
+          if (loadedCount === 2) {
+            const status = iconCount >= 2 ? "good" : "bad";
+            document.getElementById(
+              "iconStatus"
+            ).className = `status ${status}`;
+          }
+        }
+
+        img192.onload = () => {
+          iconCount++;
+          checkIconComplete();
+        };
+        img192.onerror = checkIconComplete;
+        img192.src = "/icon-192x192.png";
+
+        img512.onload = () => {
+          iconCount++;
+          checkIconComplete();
+        };
+        img512.onerror = checkIconComplete;
+        img512.src = "/icon-512x512.png";
+      }
+
+      // Install button functionality
+      let deferredPrompt;
+
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById("installBtn").style.display = "block";
+        document.getElementById("installableStatus").className = "status good";
+      });
+
+      document
+        .getElementById("installBtn")
+        .addEventListener("click", async () => {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response: ${outcome}`);
+            deferredPrompt = null;
+            document.getElementById("installBtn").style.display = "none";
+          }
+        });
+
+      window.addEventListener("appinstalled", () => {
+        console.log("PWA was installed");
+        document.getElementById("installableStatus").className = "status good";
+      });
+
+      // Browser detection
+      function getBrowserInfo() {
+        const userAgent = navigator.userAgent;
+        let browser = "Unknown";
+
+        if (userAgent.includes("Chrome") && !userAgent.includes("Edg")) {
+          browser = "Chrome";
+        } else if (
+          userAgent.includes("Safari") &&
+          !userAgent.includes("Chrome")
+        ) {
+          browser = "Safari";
+        } else if (userAgent.includes("Firefox")) {
+          browser = "Firefox";
+        } else if (userAgent.includes("Edg")) {
+          browser = "Edge";
+        } else if (userAgent.includes("Samsung")) {
+          browser = "Samsung Internet";
+        }
+
+        return browser;
+      }
+
+      function getPlatformInfo() {
+        const userAgent = navigator.userAgent;
+        if (/android/i.test(userAgent)) return "Android";
+        if (/iPad|iPhone|iPod/.test(userAgent)) return "iOS";
+        if (/Windows/.test(userAgent)) return "Windows";
+        if (/Mac/.test(userAgent)) return "macOS";
+        if (/Linux/.test(userAgent)) return "Linux";
+        return "Unknown";
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        checkPWARequirements();
+        document.getElementById("browserInfo").textContent = getBrowserInfo();
+        document.getElementById("platformInfo").textContent = getPlatformInfo();
+        document.getElementById("currentUrl").textContent =
+          window.location.href;
+
+        // Register service worker
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .then((registration) => {
+              console.log("SW registered:", registration);
+              document.getElementById("swStatus").className = "status good";
+            })
+            .catch((error) => {
+              console.log("SW registration failed:", error);
+              document.getElementById("swStatus").className = "status bad";
+            });
+        }
+
+        // Check if already installed
+        if (
+          window.matchMedia &&
+          window.matchMedia("(display-mode: standalone)").matches
+        ) {
+          document.getElementById("installableStatus").className =
+            "status good";
+        }
+      });
+    </script>
+  </body>
+</html>

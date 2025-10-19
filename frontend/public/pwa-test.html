@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PWA Test - HisabKitab</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/icon-192x192.svg" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        min-height: 100vh;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 30px;
+        border-radius: 15px;
+        backdrop-filter: blur(10px);
+        margin: 20px 0;
+      }
+      button {
+        background: #4caf50;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px 0;
+        width: 100%;
+      }
+      button:hover {
+        background: #45a049;
+      }
+      .status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .success {
+        background: rgba(76, 175, 80, 0.3);
+      }
+      .error {
+        background: rgba(244, 67, 54, 0.3);
+      }
+      .warning {
+        background: rgba(255, 193, 7, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>🎉 HisabKitab PWA Test</h1>
+      <p>This page helps you test PWA installation and features.</p>
+
+      <div id="status-container">
+        <div class="status" id="sw-status">📱 Checking service worker...</div>
+        <div class="status" id="manifest-status">📋 Checking manifest...</div>
+        <div class="status" id="install-status">
+          ⬇️ Checking install status...
+        </div>
+      </div>
+
+      <button onclick="testServiceWorker()">🔧 Test Service Worker</button>
+      <button onclick="testManifest()">📋 Test Manifest</button>
+      <button onclick="checkInstallable()">⬇️ Check Installable</button>
+      <button onclick="requestInstall()" id="install-btn" style="display: none">
+        📱 Install App
+      </button>
+
+      <div class="card">
+        <h3>PWA Requirements Checklist:</h3>
+        <ul>
+          <li id="https-check">🔒 HTTPS or localhost</li>
+          <li id="manifest-check">📋 Valid manifest.json</li>
+          <li id="sw-check">🔧 Service Worker registered</li>
+          <li id="icons-check">🎨 Icons available</li>
+          <li id="engagement-check">👤 User engagement</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      let deferredPrompt;
+
+      // Check basic requirements
+      function checkRequirements() {
+        // HTTPS check
+        const httpsCheck = document.getElementById("https-check");
+        if (
+          location.protocol === "https:" ||
+          location.hostname === "localhost"
+        ) {
+          httpsCheck.classList.add("success");
+          httpsCheck.innerHTML = "✅ HTTPS or localhost - OK";
+        } else {
+          httpsCheck.classList.add("error");
+          httpsCheck.innerHTML = "❌ HTTPS required for PWA";
+        }
+
+        // Service Worker check
+        if ("serviceWorker" in navigator) {
+          document.getElementById("sw-check").classList.add("success");
+          document.getElementById("sw-check").innerHTML =
+            "✅ Service Worker supported";
+        } else {
+          document.getElementById("sw-check").classList.add("error");
+          document.getElementById("sw-check").innerHTML =
+            "❌ Service Worker not supported";
+        }
+      }
+
+      // Test Service Worker
+      async function testServiceWorker() {
+        const statusEl = document.getElementById("sw-status");
+        try {
+          if ("serviceWorker" in navigator) {
+            const registration = await navigator.serviceWorker.register(
+              "/sw.js"
+            );
+            statusEl.className = "status success";
+            statusEl.innerHTML = "✅ Service Worker registered successfully!";
+            console.log("SW registered:", registration);
+          } else {
+            statusEl.className = "status error";
+            statusEl.innerHTML = "❌ Service Worker not supported";
+          }
+        } catch (error) {
+          statusEl.className = "status error";
+          statusEl.innerHTML =
+            "❌ Service Worker registration failed: " + error.message;
+          console.error("SW registration failed:", error);
+        }
+      }
+
+      // Test Manifest
+      async function testManifest() {
+        const statusEl = document.getElementById("manifest-status");
+        try {
+          const response = await fetch("/manifest.json");
+          if (response.ok) {
+            const manifest = await response.json();
+            statusEl.className = "status success";
+            statusEl.innerHTML = "✅ Manifest loaded: " + manifest.name;
+
+            // Update manifest check
+            document.getElementById("manifest-check").classList.add("success");
+            document.getElementById("manifest-check").innerHTML =
+              "✅ Valid manifest.json";
+
+            // Check icons
+            const iconsCheck = document.getElementById("icons-check");
+            if (manifest.icons && manifest.icons.length > 0) {
+              iconsCheck.classList.add("success");
+              iconsCheck.innerHTML =
+                "✅ Icons available (" + manifest.icons.length + ")";
+            } else {
+              iconsCheck.classList.add("warning");
+              iconsCheck.innerHTML = "⚠️ No icons in manifest";
+            }
+          } else {
+            statusEl.className = "status error";
+            statusEl.innerHTML = "❌ Manifest not found";
+          }
+        } catch (error) {
+          statusEl.className = "status error";
+          statusEl.innerHTML = "❌ Manifest error: " + error.message;
+        }
+      }
+
+      // Check if app is installable
+      function checkInstallable() {
+        const statusEl = document.getElementById("install-status");
+        const installBtn = document.getElementById("install-btn");
+
+        if (deferredPrompt) {
+          statusEl.className = "status success";
+          statusEl.innerHTML = "✅ App is installable!";
+          installBtn.style.display = "block";
+        } else {
+          statusEl.className = "status warning";
+          statusEl.innerHTML =
+            "⚠️ Install prompt not available yet. Try interacting with the page.";
+        }
+      }
+
+      // Request install
+      async function requestInstall() {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log("Install outcome:", outcome);
+          deferredPrompt = null;
+          document.getElementById("install-btn").style.display = "none";
+        }
+      }
+
+      // Listen for install prompt
+      window.addEventListener("beforeinstallprompt", (e) => {
+        console.log("Install prompt available");
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById("install-btn").style.display = "block";
+
+        const statusEl = document.getElementById("install-status");
+        statusEl.className = "status success";
+        statusEl.innerHTML = "✅ Install prompt ready!";
+      });
+
+      // Check if already installed
+      window.addEventListener("appinstalled", () => {
+        console.log("PWA was installed");
+        deferredPrompt = null;
+        document.getElementById("install-btn").style.display = "none";
+      });
+
+      // Initialize
+      window.addEventListener("load", () => {
+        checkRequirements();
+        testServiceWorker();
+        testManifest();
+
+        // Simulate user engagement for install prompt
+        setTimeout(() => {
+          document.getElementById("engagement-check").classList.add("success");
+          document.getElementById("engagement-check").innerHTML =
+            "✅ User engagement detected";
+        }, 2000);
+      });
+    </script>
+  </body>
+</html>
